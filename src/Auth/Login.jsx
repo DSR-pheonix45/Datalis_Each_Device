@@ -24,6 +24,9 @@ export default function Login() {
   });
   const recaptchaRef = useRef(null);
 
+  const siteKey = import.meta.env.VITE_APP_RECAPTCHA_SITE_KEY;
+  console.log('Login siteKey:', siteKey);
+
   // Redirect if already logged in
   useEffect(() => {
     if (user && !authLoading) {
@@ -248,7 +251,7 @@ export default function Login() {
               <div className="w-full flex justify-center scale-90">
                 <ReCAPTCHA
                   ref={recaptchaRef}
-                  sitekey={import.meta.env.VITE_APP_RECAPTCHA_SITE_KEY}
+                  sitekey={siteKey}
                   onChange={(token) => setRecaptchaToken(token)}
                   onExpired={() => setRecaptchaToken(null)}
                   onError={() => setRecaptchaToken(null)}
