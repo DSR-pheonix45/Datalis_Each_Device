@@ -23,6 +23,7 @@
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.344.0",
+    "mammoth": "^1.11.0",
     "papaparse": "^5.4.1",
     "pdfjs-dist": "^4.9.155",
     "react": "^18.3.1",

@@ -31,7 +31,7 @@ export default defineConfig({
               return 'export-libs';
             }
             // Data Processing
-            if (id.includes('xlsx') || id.includes('papaparse')) {
+            if (id.includes('xlsx') || id.includes('papaparse') || id.includes('mammoth')) {
               return 'data-libs';
             }
             // Supabase
