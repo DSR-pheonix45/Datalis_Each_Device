@@ -1,0 +1,446 @@
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useImperativeHandle,
+  forwardRef,
+  useCallback,
+} from "react";
+import {
+  BsPaperclip,
+  BsSend,
+  BsGlobe2,
+  BsBriefcase,
+  BsX,
+  BsFileEarmark,
+} from "react-icons/bs";
+import FileSuggestions from "./FileSuggestions";
+import VoiceInput from "../VoiceInput";
+import AttachWorkbenchModal from "./AttachWorkbenchModal";
+import { useWorkbenchContext } from "../../hooks/useWorkbenchContext";
+
+const PLACEHOLDERS = [
+  "Ask about profit margins...",
+  "Compare Q3 and Q4 revenue...",
+  "Identify risks in the balance sheet...",
+  "Upload a CSV to begin analysis...",
+  "Draft a financial summary...",
+];
+
+const ChatInput = forwardRef(function ChatInput(
+  {
+    onSendMessage,
+    disabled = false,
+    placeholder = "Message Dabby Consultant...",
+    initialMessage = "",
+    webSearchEnabled = false,
+    uploadedFiles = [],
+    onWorkbenchClick,
+  },
+  ref
+) {
+  const [message, setMessage] = useState(initialMessage);
+  const [isFocused, setIsFocused] = useState(false);
+  const [webEnabled, setWebEnabled] = useState(webSearchEnabled);
+  const [isLoading, setIsLoading] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isWorkbenchModalOpen, setIsWorkbenchModalOpen] = useState(false);
+  const { context: workbenchContext, detachWorkbench } = useWorkbenchContext();
+  const [attachedWorkbench, setAttachedWorkbench] = useState(workbenchContext?.workbench || null);
+
+  // Rotating Placeholder Logic
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [currentPlaceholder, setCurrentPlaceholder] = useState(PLACEHOLDERS[0]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % PLACEHOLDERS.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    setCurrentPlaceholder(PLACEHOLDERS[placeholderIndex]);
+  }, [placeholderIndex]);
+
+  // Handle workbench attachment
+  const handleWorkbenchAttach = useCallback((workbench) => {
+    setAttachedWorkbench(workbench);
+    onWorkbenchClick?.(workbench);
+  }, [onWorkbenchClick]);
+
+  // Handle workbench detachment
+  const handleWorkbenchDetach = useCallback(() => {
+    detachWorkbench();
+    setAttachedWorkbench(null);
+    onWorkbenchClick?.(null);
+  }, [onWorkbenchClick, detachWorkbench]);
+
+  // Sync with parent's uploadedFiles
+  useEffect(() => {
+    if (uploadedFiles && uploadedFiles.length > 0) {
+      setAttachedFiles(uploadedFiles);
+    }
+  }, [uploadedFiles]);
+
+  // Listen for suggestion clicks from Chat Messages
+  useEffect(() => {
+    const handleSuggestionClick = (e) => {
+      const suggestion = e.detail;
+      setMessage(suggestion);
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    };
+
+    window.addEventListener('suggestionClicked', handleSuggestionClick);
+    return () => window.removeEventListener('suggestionClicked', handleSuggestionClick);
+  }, []);
+
+  const handleFileAttachment = (e) => {
+    const files = Array.from(e.target.files);
+    setAttachedFiles((prev) => {
+      const newFiles = [...prev, ...files];
+      setShowSuggestions(true);
+      return newFiles;
+    });
+  };
+
+  const fileInputRef = useRef(null);
+  const [typingTimeout, setTypingTimeout] = useState(null);
+  const textareaRef = useRef(null);
+
+  const handleInputChange = (e) => {
+    setMessage(e.target.value);
+    setIsTyping(true);
+    if (typingTimeout) clearTimeout(typingTimeout);
+    const timeout = setTimeout(() => setIsTyping(false), 500);
+    setTypingTimeout(timeout);
+  };
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height =
+        Math.min(textareaRef.current.scrollHeight, 120) + "px";
+    }
+  }, [message]);
+
+  // Handle initial message changes
+  useEffect(() => {
+    if (initialMessage) {
+      setMessage(initialMessage);
+    }
+  }, [initialMessage]);
+
+  // Sync web search state
+  useEffect(() => {
+    setWebEnabled(webSearchEnabled);
+  }, [webSearchEnabled]);
+
+  const sendMessage = async (customMessage = null) => {
+    const messageToSend = customMessage !== null ? customMessage : message;
+    if ((messageToSend.trim() || attachedFiles.length > 0) && !disabled && !isLoading) {
+      setIsLoading(true);
+
+      try {
+        if (onSendMessage) {
+          onSendMessage(
+            messageToSend,
+            {
+              web: webEnabled,
+              uploadedFiles: attachedFiles,
+              attachedWorkbench: attachedWorkbench,
+              response: null,
+              hasContext:
+                webEnabled ||
+                workbenchContext ||
+                attachedWorkbench ||
+                attachedFiles.length > 0,
+            },
+            false
+          );
+        }
+
+        setMessage("");
+        setAttachedFiles([]);
+        setShowSuggestions(false);
+        if (textareaRef.current) textareaRef.current.style.height = "auto";
+        setIsTyping(false);
+      } catch (error) {
+        console.error("ChatInput: Error sending message:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const canRunInference = () => {
+    return webEnabled || workbenchContext || attachedFiles.length > 0;
+  };
+
+  useImperativeHandle(ref, () => ({
+    sendMessage,
+    triggerSend: sendMessage,
+    canRunInference,
+    setMessage,
+    getMessage: () => message,
+    getWebEnabled: () => webEnabled,
+  }));
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    sendMessage();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
+  const handleSuggestionClick = (suggestion) => {
+    setMessage(suggestion);
+    setShowSuggestions(false);
+    if (textareaRef.current) textareaRef.current.focus();
+  };
+
+  return (
+    <div
+      className="bg-black/40 backdrop-blur-md px-3 sm:px-4 py-4 sm:py-6 border-t border-white/5 fixed bottom-0 left-0 right-0 lg:relative lg:bottom-auto safe-area-bottom"
+      data-tour="chat-input"
+      style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+    >
+      <div className="max-w-4xl mx-auto">
+        {/* Suggestion Files */}
+        {showSuggestions && attachedFiles.length > 0 && (
+          <div className="mb-2 animate-slide-up">
+            <FileSuggestions
+              files={attachedFiles}
+              onSuggestionClick={handleSuggestionClick}
+              compact={true}
+            />
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="relative group/form">
+          {/* Main Input Container */}
+          <div
+            className={`
+                relative flex items-center gap-1 sm:gap-2 bg-[#0D1117] rounded-xl sm:rounded-2xl border transition-all duration-300
+                ${isFocused || isTyping || message.length > 0
+                ? "border-teal-500/30 shadow-[0_0_20px_rgba(20,184,166,0.1)] bg-[#0D1117]"
+                : "border-white/10 hover:border-white/20 bg-white/5"
+              }
+            `}
+          >
+            {/* Left Actions Pool (Data Input) - Collapsed on mobile */}
+            <div className="flex items-center gap-0.5 sm:gap-1 pl-2 sm:pl-3 pr-1 sm:pr-2 border-r border-white/5">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileAttachment}
+                multiple
+                accept=".pdf,.docx,.csv,.xlsx,.xls,.txt,.json"
+                className="hidden"
+                aria-label="Attach file"
+              />
+              <button
+                type="button"
+                className="group/btn relative p-2 sm:p-2.5 rounded-lg sm:rounded-xl text-gray-400 hover:text-teal-400 hover:bg-teal-500/10 transition-all duration-200"
+                title="Attach Files"
+                disabled={disabled || isLoading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <BsPaperclip className="text-base sm:text-lg" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsWorkbenchModalOpen(true)}
+                disabled={disabled || isLoading}
+                title={attachedWorkbench ? `Attached: ${attachedWorkbench.name}` : "Connect Workbench"}
+                className={`group/btn relative p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-all duration-200 ${attachedWorkbench
+                    ? "text-violet-400 bg-violet-500/10"
+                    : "text-gray-400 hover:text-violet-400 hover:bg-violet-500/10"
+                  }`}
+              >
+                <BsBriefcase className="text-base sm:text-lg" />
+              </button>
+            </div>
+
+            {/* Web Search Toggle - Hidden on very small screens */}
+            <div className="hidden xs:flex items-center gap-1 px-1">
+              <button
+                type="button"
+                onClick={() => setWebEnabled((v) => !v)}
+                disabled={disabled || isLoading}
+                title={webEnabled ? "Web Search: ON" : "Web Search: OFF"}
+                className={`group/btn relative p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-all duration-200 ${webEnabled
+                    ? "text-blue-400 bg-blue-500/10 shadow-[0_0_10px_rgba(59,130,246,0.1)]"
+                    : "text-gray-400 hover:text-blue-400 hover:bg-blue-500/10"
+                  }`}
+              >
+                <BsGlobe2 className="text-base sm:text-lg" />
+              </button>
+            </div>
+
+            {/* Attached Workbench Indicator Pill */}
+            {attachedWorkbench && (
+              <div className="absolute top-[-40px] left-0 flex items-center gap-2 px-3 py-1.5 bg-[#161B22] border border-violet-500/30 rounded-lg shadow-lg animate-fade-in z-20">
+                {attachedWorkbench?.workbench && (
+                  <div className="mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <BsBriefcase className="text-blue-500 mr-2" />
+                        <span className="font-medium">{attachedWorkbench.workbench.name}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                          ({attachedWorkbench.files?.length || 0} files)
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleWorkbenchDetach}
+                        className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 p-1 -mr-2"
+                        title="Detach workbench"
+                      >
+                        <BsX size={20} />
+                      </button>
+                    </div>
+                    {attachedWorkbench.files?.length > 0 && (
+                      <div className="mt-1 pl-6 text-xs text-gray-600 dark:text-gray-400">
+                        <div className="truncate">
+                          {attachedWorkbench.files.map((file, i) => (
+                            <span key={file.id} className="inline-flex items-center mr-2 mb-1">
+                              <BsFileEarmark className="mr-1" size={12} />
+                              {file.name}
+                              {i < attachedWorkbench.files.length - 1 ? ',' : ''}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Main Text Input Area */}
+            <div className="flex-1 relative py-2.5 sm:py-3 px-1 sm:px-2 min-w-0">
+              {/* Rotating Placeholder */}
+              {!message && !isFocused && (attachedFiles.length === 0) && (
+                <span className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 text-gray-500/50 pointer-events-none text-sm sm:text-[15px] animate-fade-in truncate max-w-[calc(100%-1rem)]">
+                  {currentPlaceholder}
+                </span>
+              )}
+
+              <textarea
+                ref={textareaRef}
+                value={message}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                placeholder={isFocused || attachedFiles.length > 0 ? placeholder : ""} // Default placeholder when focused
+                disabled={disabled || isLoading}
+                className="w-full bg-transparent text-gray-100 placeholder-transparent resize-none focus:outline-none text-sm sm:text-[15px] leading-relaxed max-h-[80px] sm:max-h-[120px] overflow-y-auto"
+                style={{ scrollbarWidth: "none" }}
+                rows={1}
+              />
+            </div>
+
+            {/* Right Actions (Voice & Send) */}
+            <div className="flex items-center gap-1 sm:gap-2 pr-2 sm:pr-3 pl-1 sm:pl-2 border-l border-white/5">
+              <div className="hidden sm:block">
+                <VoiceInput
+                  disabled={disabled || isLoading}
+                  onTranscript={setMessage}
+                  onFinalTranscript={(text) => {
+                    setMessage(text);
+                    if (textareaRef.current) textareaRef.current.focus();
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={(!message.trim() && attachedFiles.length === 0) || disabled || isLoading}
+                className={`p-2.5 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300 flex items-center justify-center min-w-[40px] sm:min-w-[44px] ${(message.trim() || attachedFiles.length > 0) && !disabled && !isLoading
+                    ? "bg-teal-500 text-black hover:bg-teal-400 shadow-[0_0_15px_rgba(20,184,166,0.3)] hover:shadow-[0_0_20px_rgba(20,184,166,0.5)] transform hover:-translate-y-0.5"
+                    : "bg-white/5 text-gray-600 cursor-not-allowed"
+                  }`}
+              >
+                {isLoading ? (
+                  <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-black/50 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <BsSend className="text-base sm:text-lg" />
+                )}
+              </button>
+            </div>
+
+            {/* File Preview Cards (Absolute above) - Mobile optimized */}
+            {attachedFiles.length > 0 && (
+              <div className="absolute bottom-full left-0 right-0 sm:right-auto mb-2 sm:mb-4 p-2 bg-[#161B22]/95 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-white/10 shadow-2xl flex flex-col gap-2 sm:min-w-[250px] animate-slide-up z-30 mx-2 sm:mx-0">
+                <div className="px-2 py-1 flex justify-between items-center border-b border-white/5 mb-1">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ready to Upload</span>
+                  <span className="text-[10px] text-teal-400">{attachedFiles.length} file(s)</span>
+                </div>
+                {attachedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors group/file"
+                  >
+                    <div className="flex items-center gap-2 sm:gap-3 overflow-hidden min-w-0">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-teal-500/10 flex items-center justify-center text-teal-400 flex-shrink-0">
+                        <BsPaperclip className="text-xs sm:text-sm" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs text-gray-200 truncate font-medium">{file.name}</span>
+                        <span className="text-[10px] text-gray-500">{(file.size / 1024).toFixed(1)} KB</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== index))}
+                      className="text-gray-500 hover:text-red-400 p-1 flex-shrink-0"
+                    >
+                      <BsX className="text-lg" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </form>
+
+        {/* Helper Footer - Hidden on mobile */}
+        <div className="hidden sm:flex mt-3 justify-between items-center px-2 opacity-50 text-[10px] text-gray-500">
+          <span>AI responses can be inaccurate. Double check critical financial data.</span>
+          <span>{message.length} / 2000</span>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+        
+        @keyframes slide-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+      `}</style>
+
+      <AttachWorkbenchModal
+        isOpen={isWorkbenchModalOpen}
+        onClose={() => setIsWorkbenchModalOpen(false)}
+        onAttach={handleWorkbenchAttach}
+        currentWorkbench={attachedWorkbench}
+      />
+    </div>
+  );
+});
+
+ChatInput.displayName = "ChatInput";
+
+export default ChatInput;
