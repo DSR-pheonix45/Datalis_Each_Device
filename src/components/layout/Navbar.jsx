@@ -31,14 +31,14 @@ export default function Navbar() {
   return (
     <>
       {/* Product Launch Banner */}
-      <div className="bg-[#171717] py-2 px-4 text-center">
+      <Link to="/maintenance" className="block bg-[#171717] py-2 px-4 text-center hover:bg-[#262626] transition-colors">
         <div className="inline-flex items-center gap-2 text-sm font-mono font-medium text-white">
           <span className="uppercase tracking-wide">
             Dec. 31 Product Launch
           </span>
           <span className="underline">Sign Up</span>
         </div>
-      </div>
+      </Link>
 
       <motion.nav
         initial={{ y: -100 }}
@@ -229,7 +229,7 @@ export default function Navbar() {
 
             {user ? (
               <Link
-                to="/dashboard"
+                to="/maintenance"
                 className={`px-6 py-2 text-base font-mono font-medium text-black bg-[#81E6D9] rounded-full border border-[#81E6D9] hover:bg-transparent transition-all duration-200 ${theme === "dark"
                   ? "hover:text-white hover:border-white"
                   : "hover:text-[#1a1a1a] hover:border-[#1a1a1a]"
@@ -240,7 +240,7 @@ export default function Navbar() {
             ) : (
               <>
                 <Link
-                  to="/signup"
+                  to="/maintenance"
                   className={`px-6 py-2 text-base font-mono font-medium text-black bg-[#81E6D9] rounded-full border border-[#81E6D9] hover:bg-transparent transition-all duration-200 ${theme === "dark"
                     ? "hover:text-white hover:border-white"
                     : "hover:text-[#1a1a1a] hover:border-[#1a1a1a]"

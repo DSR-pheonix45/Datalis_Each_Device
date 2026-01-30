@@ -1,5 +1,6 @@
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
+import { Link } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 import { track } from "@vercel/analytics";
 
@@ -87,8 +88,8 @@ export default function Hero() {
             transition={{ duration: 0.6, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10"
           >
-            <a
-              href="/signup"
+            <Link
+              to="/maintenance"
               onClick={() => track('try_datalis_free_clicked')}
               className={`inline-block px-10 py-4 text-base font-semibold text-black bg-[#81E6D9] rounded-full border border-[#81E6D9] hover:bg-transparent transition-all duration-200 ${theme === "dark"
                 ? "hover:text-white hover:border-white"
@@ -96,7 +97,7 @@ export default function Hero() {
                 }`}
             >
               Try Datalis Free
-            </a>
+            </Link>
 
             <a
               href="https://calendly.com/medhansh_k/mk-101"
