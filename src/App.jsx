@@ -1,6 +1,45 @@
 import React, { Suspense, lazy } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import Maintenance from "./pages/Maintenance";
+import { AuthProvider } from "./context/AuthContext";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
+import { WorkbenchProvider } from "./context/WorkbenchContext.jsx";
+import { SpeedInsights } from "@vercel/speed-insights/react";
+import { Analytics } from "@vercel/analytics/react";
+import ScrollToTop from "./components/ScrollToTop";
+import ProtectedRoute from "./Auth/ProtectedRoute";
+
+// Lazy Load Landing Page Components
+const Home = lazy(() => import("./pages/Home"));
+const Product = lazy(() => import("./pages/Product"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const About = lazy(() => import("./pages/About"));
+const Features = lazy(() => import("./pages/Features"));
+const Documentation = lazy(() => import("./pages/Documentation"));
+const HelpCenter = lazy(() => import("./pages/HelpCenter"));
+const Blog = lazy(() => import("./pages/Blog"));
+const Careers = lazy(() => import("./pages/Careers"));
+const Integrations = lazy(() => import("./pages/Integrations"));
+const Api = lazy(() => import("./pages/Api"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const PaymentComingSoon = lazy(() => import("./pages/PaymentComingSoon"));
+const Navbar = lazy(() => import("./components/layout/Navbar"));
+const Footer = lazy(() => import("./components/landing/Footer"));
+
+// Authentication Components
+const Login = lazy(() => import("./Auth/Login"));
+const Signup = lazy(() => import("./Auth/Signup"));
+const ForgotPassword = lazy(() => import("./Auth/ForgotPassword"));
+const ResetPasswordConfirm = lazy(() => import("./Auth/ResetPasswordConfirm"));
+const OAuthCallback = lazy(() => import("./Auth/OAuthCallback"));
+
+// Protected Components
+const MainApp = lazy(() => import("./components/MainApp"));
+const Settings = lazy(() => import("./components/Settings/Settings"));
+const WorkbenchesPage = lazy(() => import("./pages/workbenches/WorkbenchesPage"));
+const CompanyPage = lazy(() => import("./pages/CompanyPage"));
+const JoinCompany = lazy(() => import("./pages/JoinCompany"));
 
 // Loading Component
 const PageLoader = () => (
@@ -9,15 +48,74 @@ const PageLoader = () => (
   </div>
 );
 
+// Wrapper for Landing Pages to apply specific Theme/Layout
+function LandingLayout({ children }) {
+  const { theme } = useTheme();
+  // Ensure we are not in dashboard
+  return (
+    <div className={`min-h-screen font-dm-sans ${theme === "dark" ? "bg-black text-[#f8fafc]" : "bg-[#f0f0f0] text-[#1e293b]"}`}>
+      <Suspense fallback={null}>
+        <Navbar />
+      </Suspense>
+      {children}
+      <Suspense fallback={null}>
+        <Footer />
+      </Suspense>
+    </div>
+  );
+}
+
 function App() {
   return (
     <Router>
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
-          {/* Redirect all traffic to Maintenance page */}
-          <Route path="*" element={<Maintenance />} />
-        </Routes>
-      </Suspense>
+      <ScrollToTop />
+      <AuthProvider>
+        <ThemeProvider>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              {/* Public Landing Pages with Persistent Layout */}
+              <Route element={<LandingLayout><Outlet /></LandingLayout>}>
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Maintenance />} />
+                <Route path="/signup" element={<Maintenance />} />
+                <Route path="/product" element={<Product />} />
+                <Route path="/pricing" element={<Pricing />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/features" element={<Features />} />
+                <Route path="/docs" element={<Documentation />} />
+                <Route path="/help" element={<HelpCenter />} />
+                <Route path="/blog" element={<Blog />} />
+                <Route path="/careers" element={<Careers />} />
+                <Route path="/integrations" element={<Integrations />} />
+                <Route path="/api" element={<Api />} />
+                <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/payment-coming-soon" element={<PaymentComingSoon />} />
+              </Route>
+              <Route path="/join-company" element={<Maintenance />} />
+
+              {/* Other Auth Routes */}
+              <Route path="/reset-password" element={<Maintenance />} />
+              <Route
+                path="/reset-password-confirm"
+                element={<Maintenance />}
+              />
+              <Route path="/oauth/callback" element={<Maintenance />} />
+              <Route path="/auth/callback" element={<Maintenance />} />
+
+              {/* Protected Dashboard Routes */}
+              <Route
+                path="/dashboard/*"
+                element={<Maintenance />}
+              />
+
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </ThemeProvider>
+      </AuthProvider>
+      <SpeedInsights />
+      <Analytics />
     </Router>
   );
 }
