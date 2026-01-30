@@ -2,11 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
-import { inject } from '@vercel/analytics';
 import { injectSpeedInsights } from '@vercel/speed-insights';
 
-// Initialize Vercel Analytics and Speed Insights
-inject();
+// Initialize Vercel Speed Insights
 injectSpeedInsights();
 
 // Simple error handler to prevent blank screens
