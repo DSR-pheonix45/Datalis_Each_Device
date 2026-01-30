@@ -268,7 +268,10 @@ export default function InteractiveWorkflow() {
                     </motion.div>
                   </div>
                 </motion.div>
-        </AnimatePresence>
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
