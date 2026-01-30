@@ -36,6 +36,7 @@ export const signUp = async () => ({ success: false, error: 'Services under main
 export const signIn = async () => ({ success: false, error: 'Services under maintenance' });
 export const signOut = async () => {};
 export const getCurrentUser = async () => ({ user: null, error: null });
+export const resetPassword = async () => ({ data: null, error: 'Services under maintenance' });
 export const onAuthStateChange = (callback) => {
   // Return a dummy subscription
   return { data: { subscription: { unsubscribe: () => {} } } };
