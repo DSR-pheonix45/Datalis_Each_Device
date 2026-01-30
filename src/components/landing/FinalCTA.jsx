@@ -118,12 +118,12 @@ export default function FinalCTA() {
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: 0.1, duration: 0.5 }}
-            className={`text-3xl md:text-4xl lg:text-5xl font-bold mb-4 ${isDark ? "text-white" : "text-[#1a1a1a]"
+            className={`text-3xl md:text-4xl lg:text-5xl font-bold mb-4 px-4 md:px-0 ${isDark ? "text-white" : "text-[#1a1a1a]"
               }`}
           >
             Ready to Transform Your
-            <br />
-            Financial Analysis?
+            <br className="hidden sm:block" />
+            {" "}Financial Analysis?
           </motion.h2>
 
           {/* Subheadline */}
@@ -131,7 +131,7 @@ export default function FinalCTA() {
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: 0.2, duration: 0.5 }}
-            className={`text-base md:text-lg mb-8 max-w-xl mx-auto ${isDark ? "text-gray-400" : "text-gray-600"
+            className={`text-sm md:text-lg mb-8 max-w-xl mx-auto px-6 md:px-0 ${isDark ? "text-gray-400" : "text-gray-600"
               }`}
           >
             Join hundreds of finance teams using Datalis to make faster, smarter
@@ -143,18 +143,18 @@ export default function FinalCTA() {
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: 0.3, duration: 0.5 }}
-            className="flex flex-wrap items-center justify-center gap-3 mb-8"
+            className="flex flex-wrap items-center justify-center gap-2 md:gap-3 mb-8 px-4"
           >
             {features.map((feature, index) => (
               <div
                 key={index}
-                className={`flex items-center gap-2 px-5 py-2 rounded-full border ${isDark
+                className={`flex items-center gap-2 px-4 md:px-5 py-1.5 md:py-2 rounded-full border ${isDark
                   ? "border-white/10 bg-white/5"
                   : "border-[#1a1a1a]/10 bg-white"
                   }`}
               >
                 <span
-                  className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"
+                  className={`text-xs md:text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"
                     }`}
                 >
                   {feature.label}
@@ -168,12 +168,13 @@ export default function FinalCTA() {
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ delay: 0.4, duration: 0.5 }}
+            className="px-6 md:px-0"
           >
             <a
               href="https://calendly.com/medhansh_k/mk-101"
               target="_blank"
               rel="noopener noreferrer"
-              className={`inline-block px-10 py-4 text-base md:text-lg font-semibold text-black bg-[#81E6D9] rounded-full border border-[#81E6D9] hover:bg-transparent transition-all duration-200 ${isDark
+              className={`w-full sm:w-auto inline-block px-8 md:px-10 py-3.5 md:py-4 text-base md:text-lg font-semibold text-black bg-[#81E6D9] rounded-full border border-[#81E6D9] hover:bg-transparent transition-all duration-200 ${isDark
                   ? "hover:text-white hover:border-white"
                   : "hover:text-[#1a1a1a] hover:border-[#1a1a1a]"
                 }`}

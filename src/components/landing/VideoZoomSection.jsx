@@ -26,7 +26,7 @@ export default function VideoZoomSection() {
     return (
         <section
             ref={containerRef}
-            className="min-h-screen flex items-center justify-center bg-black px-10 py-20 overflow-hidden relative"
+            className="min-h-screen flex items-center justify-center bg-black px-4 md:px-10 py-16 md:py-20 overflow-hidden relative"
         >
             {/* Background gradient */}
             <div className="absolute inset-0 bg-gradient-to-b from-black via-gray-900 to-black opacity-50" />

@@ -226,14 +226,14 @@ export default function FeaturesGrid() {
         </div>
 
         {/* Steps Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
           {steps.map((step, index) => (
             <motion.div
               key={step.number}
               initial={{ opacity: 0, y: 30 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 0.2 + index * 0.1, duration: 0.5 }}
-              className={`p-8 rounded-2xl border transition-all duration-300 ${isDark
+              className={`p-6 md:p-8 rounded-2xl border transition-all duration-300 ${isDark
                 ? "bg-[#111111] border-white/5 hover:border-[#81E6D9]/30"
                 : "bg-white border-[#1a1a1a]/10 hover:border-[#81E6D9]/50 shadow-sm"
                 }`}

@@ -235,50 +235,50 @@ export default function Hero() {
           >
             {/* App Interface Mockup */}
             <div
-              className={`aspect-[16/10] p-4 md:p-6 ${theme === "dark" ? "bg-[#0a0a0a]" : "bg-gray-50"
+              className={`aspect-auto md:aspect-[16/10] p-3 md:p-6 ${theme === "dark" ? "bg-[#0a0a0a]" : "bg-gray-50"
                 }`}
             >
               {/* Top bar */}
-              <div className="flex items-center gap-4 mb-4">
+              <div className="flex items-center justify-between md:justify-start gap-4 mb-4">
                 <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
-                  <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
+                  <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-red-500/80"></div>
+                  <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-yellow-500/80"></div>
+                  <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-green-500/80"></div>
                 </div>
                 <div
-                  className={`flex gap-2 ${theme === "dark" ? "text-[#787878]" : "text-gray-500"
+                  className={`flex gap-2 overflow-x-auto no-scrollbar ${theme === "dark" ? "text-[#787878]" : "text-gray-500"
                     }`}
                 >
-                  <span className="px-3 py-1 text-xs rounded font-medium bg-[#81E6D9] text-black">
+                  <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs rounded font-medium bg-[#81E6D9] text-black whitespace-nowrap">
                     Dashboard
                   </span>
-                  <span className="px-3 py-1 text-xs">Reports</span>
-                  <span className="px-3 py-1 text-xs">Dabby AI</span>
+                  <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs whitespace-nowrap">Reports</span>
+                  <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs whitespace-nowrap">Dabby AI</span>
                 </div>
               </div>
 
               {/* Main content - Fuller dashboard */}
-              <div className="flex gap-3 h-[calc(100%-40px)]">
-                {/* Left Sidebar - Mini Nav */}
-                <div className={`w-12 flex-shrink-0 rounded-lg flex flex-col items-center py-3 gap-3 ${theme === "dark" ? "bg-[#111111] border border-white/5" : "bg-white border border-[#1a1a1a]/10"}`}>
-                  <div className="w-7 h-7 rounded-lg bg-[#81E6D9]/20 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-[#81E6D9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex flex-col md:flex-row gap-3 h-full md:h-[calc(100%-40px)]">
+                {/* Left Sidebar - Mini Nav - Hidden on very small screens */}
+                <div className={`hidden sm:flex w-10 md:w-12 flex-shrink-0 rounded-lg flex-col items-center py-3 gap-3 ${theme === "dark" ? "bg-[#111111] border border-white/5" : "bg-white border border-[#1a1a1a]/10"}`}>
+                  <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg bg-[#81E6D9]/20 flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#81E6D9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                     </svg>
                   </div>
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${theme === "dark" ? "bg-white/5" : "bg-gray-100"}`}>
-                    <svg className={`w-4 h-4 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className={`w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center ${theme === "dark" ? "bg-white/5" : "bg-gray-100"}`}>
+                    <svg className={`w-3.5 h-3.5 md:w-4 md:h-4 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${theme === "dark" ? "bg-white/5" : "bg-gray-100"}`}>
-                    <svg className={`w-4 h-4 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className={`w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center ${theme === "dark" ? "bg-white/5" : "bg-gray-100"}`}>
+                    <svg className={`w-3.5 h-3.5 md:w-4 md:h-4 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                     </svg>
                   </div>
                   <div className="flex-1"></div>
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${theme === "dark" ? "bg-white/5" : "bg-gray-100"}`}>
-                    <svg className={`w-4 h-4 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className={`w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center ${theme === "dark" ? "bg-white/5" : "bg-gray-100"}`}>
+                    <svg className={`w-3.5 h-3.5 md:w-4 md:h-4 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
@@ -286,50 +286,48 @@ export default function Hero() {
                 </div>
 
                 {/* Main Dashboard Area */}
-                <div className="flex-1 flex flex-col gap-3">
+                <div className="flex-1 flex flex-col gap-3 overflow-hidden">
                   {/* Top KPI Cards Row */}
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
                     {[
                       { label: "Total Revenue", value: "₹730M", change: "+18%", positive: true },
                       { label: "Net Profit", value: "₹142M", change: "+24%", positive: true },
                       { label: "Expenses", value: "₹88M", change: "-5%", positive: true },
                       { label: "Growth Rate", value: "32.4%", change: "+8%", positive: true }
                     ].map((kpi, i) => (
-                      <div key={i} className={`p-3 rounded-lg border ${theme === "dark" ? "bg-[#111111] border-white/5" : "bg-white border-[#1a1a1a]/10"}`}>
-                        <p className={`text-[10px] mb-1 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}>{kpi.label}</p>
-                        <p className="text-lg font-bold text-[#81E6D9]">{kpi.value}</p>
-                        <p className={`text-[10px] ${kpi.positive ? "text-green-400" : "text-red-400"}`}>{kpi.change}</p>
+                      <div key={i} className={`p-2 md:p-3 rounded-lg border ${theme === "dark" ? "bg-[#111111] border-white/5" : "bg-white border-[#1a1a1a]/10"}`}>
+                        <p className={`text-[8px] md:text-[10px] mb-0.5 md:mb-1 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}>{kpi.label}</p>
+                        <p className="text-sm md:text-lg font-bold text-[#81E6D9]">{kpi.value}</p>
+                        <p className={`text-[8px] md:text-[10px] ${kpi.positive ? "text-green-400" : "text-red-400"}`}>{kpi.change}</p>
                       </div>
                     ))}
                   </div>
 
                   {/* Charts Row */}
-                  <div className="grid grid-cols-3 gap-3 flex-1">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 flex-1 min-h-[150px] md:min-h-0">
                     {/* Revenue Chart - Wider */}
-                    <div className={`col-span-2 p-3 rounded-lg border ${theme === "dark" ? "bg-[#111111] border-white/5" : "bg-white border-[#1a1a1a]/10"}`}>
+                    <div className={`lg:col-span-2 p-2 md:p-3 rounded-lg border ${theme === "dark" ? "bg-[#111111] border-white/5" : "bg-white border-[#1a1a1a]/10"}`}>
                       <div className="flex items-center justify-between mb-2">
-                        <span className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}>Revenue Trend</span>
+                        <span className={`text-[10px] md:text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}>Revenue Trend</span>
                         <div className="flex gap-2">
-                          <span className={`text-[9px] px-2 py-0.5 rounded ${theme === "dark" ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-500"}`}>Monthly</span>
-                          <span className={`text-[9px] px-2 py-0.5 rounded ${theme === "dark" ? "bg-[#81E6D9]/20 text-[#81E6D9]" : "bg-[#81E6D9]/20 text-[#0D9488]"}`}>YTD</span>
+                          <span className={`text-[8px] md:text-[9px] px-1.5 md:px-2 py-0.5 rounded ${theme === "dark" ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-500"}`}>Monthly</span>
+                          <span className={`text-[8px] md:text-[9px] px-1.5 md:px-2 py-0.5 rounded ${theme === "dark" ? "bg-[#81E6D9]/20 text-[#81E6D9]" : "bg-[#81E6D9]/20 text-[#0D9488]"}`}>YTD</span>
                         </div>
                       </div>
-                      <svg className="w-full h-20" viewBox="0 0 300 60">
+                      <svg className="w-full h-16 md:h-20" viewBox="0 0 300 60" preserveAspectRatio="none">
                         <path d="M0,45 Q30,42 60,38 T120,30 T180,22 T240,18 T300,12" fill="none" stroke="#81E6D9" strokeWidth="2" />
                         <path d="M0,45 Q30,42 60,38 T120,30 T180,22 T240,18 T300,12 L300,60 L0,60 Z" fill="rgba(129, 230, 217, 0.15)" />
                       </svg>
-                      <div className="flex justify-between text-[10px] mt-1">
+                      <div className="flex justify-between text-[8px] md:text-[10px] mt-1">
                         <span className={theme === "dark" ? "text-gray-600" : "text-gray-400"}>Jan</span>
-                        <span className={theme === "dark" ? "text-gray-600" : "text-gray-400"}>Mar</span>
                         <span className={theme === "dark" ? "text-gray-600" : "text-gray-400"}>Jun</span>
-                        <span className={theme === "dark" ? "text-gray-600" : "text-gray-400"}>Sep</span>
                         <span className={theme === "dark" ? "text-gray-600" : "text-gray-400"}>Dec</span>
                       </div>
                     </div>
 
-                    {/* Margin Bars */}
-                    <div className={`p-3 rounded-lg border ${theme === "dark" ? "bg-[#111111] border-white/5" : "bg-white border-[#1a1a1a]/10"}`}>
-                      <span className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}>Margin by Product</span>
+                    {/* Margin Bars - Hidden on mobile to save space */}
+                    <div className={`hidden lg:block p-3 rounded-lg border ${theme === "dark" ? "bg-[#111111] border-white/5" : "bg-white border-[#1a1a1a]/10"}`}>
+                      <span className="text-xs text-gray-500">Margin by Product</span>
                       <div className="flex items-end gap-1.5 h-16 mt-2">
                         {[60, 80, 45, 90, 70, 55].map((h, i) => (
                           <div key={i} className="flex-1 rounded-t" style={{ height: `${h}%`, opacity: 0.6 + i * 0.06, backgroundColor: "#81E6D9" }}></div>
@@ -339,9 +337,9 @@ export default function Hero() {
                   </div>
 
                   {/* Bottom Row - Activity & AI */}
-                  <div className="grid grid-cols-3 gap-3">
-                    {/* Recent Activity */}
-                    <div className={`col-span-2 p-3 rounded-lg border ${theme === "dark" ? "bg-[#111111] border-white/5" : "bg-white border-[#1a1a1a]/10"}`}>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    {/* Recent Activity - Hidden on mobile */}
+                    <div className={`hidden lg:block col-span-2 p-3 rounded-lg border ${theme === "dark" ? "bg-[#111111] border-white/5" : "bg-white border-[#1a1a1a]/10"}`}>
                       <span className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}>Recent Activity</span>
                       <div className="mt-2 space-y-2">
                         {[
@@ -359,16 +357,16 @@ export default function Hero() {
                     </div>
 
                     {/* AI Insights */}
-                    <div className={`p-3 rounded-lg border ${theme === "dark" ? "bg-[#81E6D9]/5 border-[#81E6D9]/20" : "bg-[#81E6D9]/10 border-[#81E6D9]/30"}`}>
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <div className="w-4 h-4 rounded-full bg-[#81E6D9]/30 flex items-center justify-center">
-                          <svg className="w-2.5 h-2.5 text-[#81E6D9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className={`p-2 md:p-3 rounded-lg border ${theme === "dark" ? "bg-[#81E6D9]/5 border-[#81E6D9]/20" : "bg-[#81E6D9]/10 border-[#81E6D9]/30"}`}>
+                      <div className="flex items-center gap-1.5 mb-1 md:mb-2">
+                        <div className="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full bg-[#81E6D9]/30 flex items-center justify-center">
+                          <svg className="w-2 md:w-2.5 h-2 md:h-2.5 text-[#81E6D9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                           </svg>
                         </div>
-                        <span className="text-[10px] font-semibold text-[#81E6D9]">Dabby AI Insights</span>
+                        <span className="text-[9px] md:text-[10px] font-semibold text-[#81E6D9]">Dabby AI Insights</span>
                       </div>
-                      <p className={`text-[10px] leading-relaxed ${theme === "dark" ? "text-gray-400" : "text-gray-600"}`}>
+                      <p className={`text-[9px] md:text-[10px] leading-relaxed ${theme === "dark" ? "text-gray-400" : "text-gray-600"}`}>
                         Revenue up 18% YoY. Recommend increasing Q1 marketing budget by 12%...
                       </p>
                     </div>

@@ -556,14 +556,22 @@ const WorkflowHorizontalFlow = ({ isDark, isInView }) => {
 
 // Workflow Selector
 const WorkflowDiagram = ({ type, isDark, isInView }) => {
-    switch (type) {
-        case "branching-right": return <WorkflowBranchingRight isDark={isDark} isInView={isInView} />;
-        case "converging": return <WorkflowConverging isDark={isDark} isInView={isInView} />;
-        case "grid-output": return <WorkflowGridOutput isDark={isDark} isInView={isInView} />;
-        case "curved-branching": return <WorkflowCurvedBranching isDark={isDark} isInView={isInView} />;
-        case "horizontal-flow": return <WorkflowHorizontalFlow isDark={isDark} isInView={isInView} />;
-        default: return <WorkflowBranchingRight isDark={isDark} isInView={isInView} />;
-    }
+    return (
+        <div className="w-full overflow-x-auto overflow-y-hidden pb-4 no-scrollbar">
+            <div className="min-w-[400px] md:min-w-0 flex justify-center scale-90 md:scale-100">
+                {(() => {
+                    switch (type) {
+                        case "branching-right": return <WorkflowBranchingRight isDark={isDark} isInView={isInView} />;
+                        case "converging": return <WorkflowConverging isDark={isDark} isInView={isInView} />;
+                        case "grid-output": return <WorkflowGridOutput isDark={isDark} isInView={isInView} />;
+                        case "curved-branching": return <WorkflowCurvedBranching isDark={isDark} isInView={isInView} />;
+                        case "horizontal-flow": return <WorkflowHorizontalFlow isDark={isDark} isInView={isInView} />;
+                        default: return <WorkflowBranchingRight isDark={isDark} isInView={isInView} />;
+                    }
+                })()}
+            </div>
+        </div>
+    );
 };
 
 // Demo Modal - Just the dashboard window
@@ -575,7 +583,7 @@ const DemoModal = ({ isOpen, onClose }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-8 md:p-16"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-16"
             onClick={onClose}
         >
             <div className="absolute inset-0 bg-black/90" />
@@ -583,9 +591,9 @@ const DemoModal = ({ isOpen, onClose }) => {
             {/* Close button - top right corner */}
             <button
                 onClick={onClose}
-                className="absolute top-6 right-6 z-20 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                className="absolute top-4 right-4 md:top-6 md:right-6 z-20 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
@@ -595,25 +603,25 @@ const DemoModal = ({ isOpen, onClose }) => {
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 onClick={(e) => e.stopPropagation()}
-                className="relative w-full max-w-6xl rounded-2xl overflow-hidden bg-[#111111] border border-white/10 shadow-2xl"
+                className="relative w-full max-w-6xl rounded-xl md:rounded-2xl overflow-hidden bg-[#111111] border border-white/10 shadow-2xl"
             >
                 {/* Window Title Bar */}
-                <div className="flex items-center gap-4 px-4 py-3 bg-[#1a1a1a] border-b border-white/10">
-                    <div className="flex gap-2">
-                        <div className="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
-                        <div className="w-3 h-3 rounded-full bg-[#febc2e]"></div>
-                        <div className="w-3 h-3 rounded-full bg-[#28c840]"></div>
+                <div className="flex items-center gap-3 md:gap-4 px-3 md:px-4 py-2 md:py-3 bg-[#1a1a1a] border-b border-white/10">
+                    <div className="flex gap-1.5 md:gap-2">
+                        <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#ff5f57]"></div>
+                        <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#febc2e]"></div>
+                        <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#28c840]"></div>
                     </div>
-                    <div className="flex gap-4">
-                        <span className="px-3 py-1 text-xs font-medium bg-white/10 rounded-md text-white">Dashboard</span>
-                        <span className="px-3 py-1 text-xs font-medium text-gray-400 hover:text-white cursor-pointer">Reports</span>
-                        <span className="px-3 py-1 text-xs font-medium text-gray-400 hover:text-white cursor-pointer">Dabby AI</span>
+                    <div className="flex gap-2 md:gap-4 overflow-x-auto no-scrollbar">
+                        <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs font-medium bg-white/10 rounded-md text-white whitespace-nowrap">Dashboard</span>
+                        <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs font-medium text-gray-400 hover:text-white cursor-pointer whitespace-nowrap">Reports</span>
+                        <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs font-medium text-gray-400 hover:text-white cursor-pointer whitespace-nowrap">Dabby AI</span>
                     </div>
                 </div>
 
                 {/* Demo Content */}
-                <div className="flex items-center justify-center min-h-[500px] md:min-h-[600px]">
-                    <span className="text-6xl md:text-8xl font-bold text-white/20 tracking-wider">Demo</span>
+                <div className="flex items-center justify-center min-h-[300px] md:min-h-[600px]">
+                    <span className="text-4xl md:text-8xl font-bold text-white/20 tracking-wider uppercase">Demo Coming Soon</span>
                 </div>
             </motion.div>
         </motion.div>

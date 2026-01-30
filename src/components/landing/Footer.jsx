@@ -35,25 +35,25 @@ export default function Footer() {
 
   return (
     <footer
-      className={`pt-20 pb-10 px-10 relative border-t ${theme === "dark" ? "border-white/10" : "border-black/10"
+      className={`pt-16 md:pt-20 pb-10 px-6 md:px-10 relative border-t ${theme === "dark" ? "border-white/10" : "border-black/10"
         }`}
     >
       <div className="max-w-7xl mx-auto">
         {/* Main Footer Content */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-16">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-8 md:gap-12 mb-16">
           {/* Brand Column */}
-          <div className="col-span-2 md:col-span-1">
+          <div className="col-span-2 sm:col-span-3 md:col-span-1">
             <Link to="/" className="inline-flex items-center gap-3 mb-4">
               <img
                 src={theme === "dark" ? "/Datalis_Logo.png" : "/Datalis_Logo-2.png"}
                 alt="Datalis"
-                className="h-10 w-auto"
+                className="h-8 md:h-10 w-auto"
                 loading="lazy"
                 decoding="async"
               />
             </Link>
             <p
-              className={`text-sm mb-4 ${theme === "dark" ? "text-white/60" : "text-[#292929]/60"
+              className={`text-sm max-w-xs mb-4 ${theme === "dark" ? "text-white/60" : "text-[#292929]/60"
                 }`}
             >
               AI-Powered Financial Intelligence for Modern Finance Teams

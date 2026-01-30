@@ -46,11 +46,11 @@ export default function FAQ() {
     };
 
     return (
-        <section ref={sectionRef} className="py-20 md:py-28 px-6 md:px-10">
+        <section ref={sectionRef} className="py-16 md:py-28 px-4 md:px-10">
             <div className="max-w-6xl mx-auto">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
                     {/* Left side - Title */}
-                    <div>
+                    <div className="text-center lg:text-left">
                         {/* Badge */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
@@ -58,10 +58,10 @@ export default function FAQ() {
                             transition={{ duration: 0.5 }}
                             className="inline-flex items-center gap-2 mb-6"
                         >
-                            <span className="px-2.5 py-1 text-xs font-semibold rounded bg-[#81E6D9] text-black">
+                            <span className="px-2.5 py-1 text-[10px] md:text-xs font-semibold rounded bg-[#81E6D9] text-black">
                                 NEW
                             </span>
-                            <span className={`px-3 py-1 text-sm rounded-full border ${theme === "dark"
+                            <span className={`px-3 py-1 text-[10px] md:text-sm rounded-full border ${theme === "dark"
                                 ? "border-white/10 text-[#787878]"
                                 : "border-[#1a1a1a]/20 text-gray-600"
                                 }`}>
@@ -73,11 +73,12 @@ export default function FAQ() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={isInView ? { opacity: 1, y: 0 } : {}}
                             transition={{ delay: 0.1, duration: 0.5 }}
-                            className={`text-4xl md:text-5xl font-bold mb-4 ${theme === "dark" ? "text-white" : "text-[#1a1a1a]"
+                            className={`text-3xl md:text-5xl font-bold mb-4 ${theme === "dark" ? "text-white" : "text-[#1a1a1a]"
                                 }`}
                         >
                             Frequently
-                            <br />
+                            <span className="hidden lg:inline"><br /></span>
+                            <span className="lg:hidden"> </span>
                             <span className={theme === "dark" ? "text-[#81E6D9]" : "text-[#0D9488]"}>Asked Questions</span>
                         </motion.h2>
 
@@ -85,7 +86,7 @@ export default function FAQ() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={isInView ? { opacity: 1, y: 0 } : {}}
                             transition={{ delay: 0.2, duration: 0.5 }}
-                            className={`text-base max-w-sm ${theme === "dark" ? "text-[#787878]" : "text-gray-600"
+                            className={`text-sm md:text-base max-w-sm mx-auto lg:mx-0 mb-8 lg:mb-0 ${theme === "dark" ? "text-[#787878]" : "text-gray-600"
                                 }`}
                         >
                             Have questions? Our FAQ section has you covered with quick answers to the most common inquiries.

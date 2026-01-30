@@ -39,7 +39,7 @@ export default function CustomerLogos() {
           initial={{ opacity: 0 }}
           animate={isInView ? { opacity: 1 } : {}}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="grid grid-cols-3 md:grid-cols-6 gap-8"
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 md:gap-8"
         >
           {logos.map((company, index) => (
             <motion.div
@@ -47,10 +47,10 @@ export default function CustomerLogos() {
               initial={{ opacity: 0, y: 20 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 0.3 + index * 0.05, duration: 0.4 }}
-              className={`flex items-center justify-center h-14 px-4 py-3 rounded-lg transition-all duration-300 ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-gray-50"
+              className={`flex items-center justify-center h-12 md:h-14 px-3 md:px-4 py-2 md:py-3 rounded-lg transition-all duration-300 ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-gray-50"
                 }`}
             >
-              <span className={`font-semibold text-sm transition-all duration-300 ${theme === "dark"
+              <span className={`font-semibold text-xs md:text-sm transition-all duration-300 ${theme === "dark"
                   ? "text-[#787878] hover:text-white"
                   : "text-[#666666] hover:text-[#292929]"
                 }`}>

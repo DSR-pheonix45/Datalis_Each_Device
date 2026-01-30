@@ -193,7 +193,7 @@ export default function Testimonial() {
           </div>
 
           {/* Masonry Grid with Infinite Scroll */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[600px] overflow-hidden relative">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] md:max-h-[600px] overflow-hidden relative">
             {/* Gradient fade top */}
             <div className={`absolute top-0 left-0 right-0 h-24 z-10 pointer-events-none ${isDark ? "bg-gradient-to-b from-[#111111] to-transparent" : "bg-gradient-to-b from-gray-50 to-transparent"
               }`} />
@@ -203,8 +203,12 @@ export default function Testimonial() {
               }`} />
 
             <AnimatedColumn testimonials={column1} delay={0} />
-            <AnimatedColumn testimonials={column2} delay={0.5} />
-            <AnimatedColumn testimonials={column3} delay={1} />
+            <div className="hidden sm:block">
+              <AnimatedColumn testimonials={column2} delay={0.5} />
+            </div>
+            <div className="hidden lg:block">
+              <AnimatedColumn testimonials={column3} delay={1} />
+            </div>
           </div>
         </div>
       </div>

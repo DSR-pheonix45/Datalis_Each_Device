@@ -94,7 +94,7 @@ export default function WhyChoose() {
         </motion.div>
 
         {/* Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, index) => (
             <motion.div
               key={index}
@@ -103,10 +103,10 @@ export default function WhyChoose() {
               transition={{ delay: 0.3 + index * 0.1, duration: 0.5 }}
               onMouseEnter={() => setHoveredIndex(index)}
               onMouseLeave={() => setHoveredIndex(null)}
-              className="group relative"
+              className={`group relative ${index === 2 ? "sm:col-span-2 lg:col-span-1" : ""}`}
             >
               <div
-                className={`relative h-full p-8 rounded-2xl border transition-all duration-300 ${theme === "dark"
+                className={`relative h-full p-6 md:p-8 rounded-2xl border transition-all duration-300 ${theme === "dark"
                     ? "bg-[#111111] border-white/5"
                     : "bg-white border-[#1a1a1a]/10"
                   } ${hoveredIndex === index

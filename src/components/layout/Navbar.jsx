@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
@@ -12,6 +12,11 @@ export default function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
   const location = useLocation();
+
+  // Close mobile menu when location changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -289,16 +294,18 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className={`md:hidden border-t mt-4 py-4 ${theme === "dark"
-              ? "bg-black/90 border-white/10"
-              : "bg-white border-gray-200"
-              }`}
-          >
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className={`md:hidden border-t py-4 absolute top-full left-0 right-0 overflow-hidden ${theme === "dark"
+                ? "bg-black/95 border-white/10"
+                : "bg-white/95 border-gray-200"
+                }`}
+            >
             <div className="flex flex-col gap-2 px-4">
               <Link
                 to="/product"
@@ -422,7 +429,8 @@ export default function Navbar() {
             </div>
           </motion.div>
         )}
-      </motion.nav>
-    </>
-  );
+      </AnimatePresence>
+    </motion.nav>
+  </>
+);
 }
