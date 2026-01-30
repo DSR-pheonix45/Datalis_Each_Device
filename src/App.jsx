@@ -4,8 +4,6 @@ import Maintenance from "./pages/Maintenance";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { WorkbenchProvider } from "./context/WorkbenchContext.jsx";
-import { SpeedInsights } from "@vercel/speed-insights/react";
-import { Analytics } from "@vercel/analytics/react";
 import ScrollToTop from "./components/ScrollToTop";
 import ProtectedRoute from "./Auth/ProtectedRoute";
 
@@ -115,8 +113,6 @@ function App() {
           </Suspense>
         </ThemeProvider>
       </AuthProvider>
-      <SpeedInsights />
-      <Analytics />
     </Router>
   );
 }

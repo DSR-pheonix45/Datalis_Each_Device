@@ -2,8 +2,12 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
-import { Analytics } from '@vercel/analytics/react';
-import { SpeedInsights } from '@vercel/speed-insights/react';
+import { inject } from '@vercel/analytics';
+import { injectSpeedInsights } from '@vercel/speed-insights';
+
+// Initialize Vercel Analytics and Speed Insights
+inject();
+injectSpeedInsights();
 
 // Simple error handler to prevent blank screens
 const handleError = (error) => {
@@ -32,11 +36,7 @@ const handleError = (error) => {
 // Wrap the app rendering in a try-catch
 try {
   ReactDOM.createRoot(document.getElementById('root')).render(
-    <>
-      <App />
-      <Analytics />
-      <SpeedInsights />
-    </>
+    <App />
   );
 } catch (error) {
   handleError(error);
