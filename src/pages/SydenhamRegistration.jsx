@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
-import { CheckCircle2, ChevronRight, Mail, User, GraduationCap, Briefcase, Wrench, AlertCircle, Sparkles } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Mail, User, GraduationCap, Briefcase, Wrench, AlertCircle, Sparkles, Download } from 'lucide-react';
 import { track } from '@vercel/analytics';
+import { saveSubmission, downloadSubmissionsAsCSV } from '../services/registrationService';
 
 const SydenhamRegistration = () => {
   const { theme } = useTheme();
@@ -33,9 +34,13 @@ const SydenhamRegistration = () => {
       profession: formData.profession
     });
 
+    // Save to IndexedDB (local storage for entries)
+    const saved = await saveSubmission(formData);
+    if (!saved) {
+      console.warn('Could not save submission locally, but proceeding with success UI');
+    }
+
     // Since Supabase is in maintenance, we'll simulate a successful submission
-    // and log it for now. In a real scenario, we'd use a dedicated table or a temporary 
-    // form service like Formspree/Netlify Forms if Supabase is strictly down.
     console.log('Sydenham Registration Data:', formData);
     
     setTimeout(() => {
@@ -111,7 +116,22 @@ const SydenhamRegistration = () => {
     <div className="min-h-screen py-20 px-6">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-12 relative">
+          <button
+            onClick={downloadSubmissionsAsCSV}
+            className={`absolute -top-4 right-0 p-3 rounded-full border transition-all duration-200 group ${
+              theme === 'dark' 
+                ? 'bg-white/5 border-white/10 text-white/40 hover:text-[#81E6D9] hover:border-[#81E6D9]/50' 
+                : 'bg-gray-50 border-gray-200 text-gray-400 hover:text-[#0D9488] hover:border-[#0D9488]/50 shadow-sm'
+            }`}
+            title="Download Submissions CSV"
+          >
+            <Download className="w-5 h-5" />
+            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2 py-1 rounded bg-gray-800 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              Export Entries
+            </span>
+          </button>
+          
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
