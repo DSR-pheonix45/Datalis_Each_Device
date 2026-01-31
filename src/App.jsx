@@ -21,6 +21,7 @@ const Integrations = lazy(() => import("./pages/Integrations"));
 const Api = lazy(() => import("./pages/Api"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const SydenhamRegistration = lazy(() => import("./pages/SydenhamRegistration"));
 const PaymentComingSoon = lazy(() => import("./pages/PaymentComingSoon"));
 const Navbar = lazy(() => import("./components/layout/Navbar"));
 const Footer = lazy(() => import("./components/landing/Footer"));
@@ -77,6 +78,7 @@ function App() {
                 <Route path="/login" element={<Maintenance />} />
                 <Route path="/signup" element={<Maintenance />} />
                 <Route path="/maintenance" element={<Maintenance />} />
+                <Route path="/sydenham" element={<SydenhamRegistration />} />
                 <Route path="/product" element={<Product />} />
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/about" element={<About />} />
