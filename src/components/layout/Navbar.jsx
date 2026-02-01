@@ -185,6 +185,22 @@ export default function Navbar() {
                   }`}
               ></span>
             </Link>
+
+            {/* Templates Link */}
+            <Link
+              to="/templates"
+              className={`relative group text-[14.4px] font-mono font-medium px-4 py-2 transition-all duration-200 ${theme === "dark" ? "text-white " : "text-[#292929] "
+                }`}
+            >
+              Templates
+              {/* Hover underline */}
+              <span
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-[#81E6D9] transition-transform duration-200 origin-left ${isActive("/templates")
+                  ? "scale-x-100"
+                  : "scale-x-0 group-hover:scale-x-100"
+                  }`}
+              ></span>
+            </Link>
           </div>
 
           {/* CTA Section - Right */}
