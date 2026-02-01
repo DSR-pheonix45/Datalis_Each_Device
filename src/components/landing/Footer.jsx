@@ -18,7 +18,6 @@ const footerLinks = {
   Resources: [
     { name: "Documentation", href: "/docs" },
     { name: "Help Center", href: "/help" },
-    { name: "Sydenham Access", href: "/sydenham" },
     {
       name: "Community",
       href: "https://chat.whatsapp.com/Jn0lBRC9EHX8cXERcYX3IP",
