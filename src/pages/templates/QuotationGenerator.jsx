@@ -2,48 +2,14 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "../../context/ThemeContext";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Download, Plus, Trash2, Globe } from "lucide-react";
+import { ArrowLeft, Download, Plus, Trash2, Globe, ChevronDown } from "lucide-react";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
-
-const REGIONS = {
-  INDIA: {
-    label: "India",
-    taxLabel: "GST",
-    currency: "INR",
-    symbol: "₹",
-    fields: ["gstin", "cin"],
-    defaultTax: 18
-  },
-  US: {
-    label: "United States",
-    taxLabel: "Sales Tax",
-    currency: "USD",
-    symbol: "$",
-    fields: ["ein"],
-    defaultTax: 0
-  },
-  EU: {
-    label: "European Union",
-    taxLabel: "VAT",
-    currency: "EUR",
-    symbol: "€",
-    fields: ["vatNumber"],
-    defaultTax: 20
-  },
-  MIDDLE_EAST: {
-    label: "Middle East",
-    taxLabel: "VAT",
-    currency: "AED",
-    symbol: "د.إ",
-    fields: ["trn"],
-    defaultTax: 5
-  }
-};
+import autoTable from "jspdf-autotable";
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle } from "docx";
+import { saveAs } from "file-saver";
 
 export default function QuotationGenerator() {
   const { theme } = useTheme();
-  const [region, setRegion] = useState("INDIA");
   const [quotationData, setQuotationData] = useState({
     quotationNumber: "QT-001",
     date: new Date().toISOString().split('T')[0],
@@ -53,26 +19,16 @@ export default function QuotationGenerator() {
     senderAddress: "",
     senderGstin: "",
     senderCin: "",
-    senderEin: "",
-    senderVat: "",
-    senderTrn: "",
     clientName: "",
     clientEmail: "",
     clientAddress: "",
     clientGstin: "",
-    clientVat: "",
     items: [{ description: "", quantity: 1, price: 0 }],
     notes: "",
-    taxRate: REGIONS.INDIA.defaultTax,
+    taxRate: 18,
   });
 
-  // Update tax rate when region changes
-  useEffect(() => {
-    setQuotationData(prev => ({
-      ...prev,
-      taxRate: REGIONS[region].defaultTax
-    }));
-  }, [region]);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -115,7 +71,7 @@ export default function QuotationGenerator() {
     const subtotal = calculateSubtotal();
     const tax = calculateTax();
     const total = calculateTotal();
-    const currentRegion = REGIONS[region];
+    const symbol = "₹";
 
     doc.setFontSize(20);
     doc.text("QUOTATION", 105, 20, { align: "center" });
@@ -124,7 +80,6 @@ export default function QuotationGenerator() {
     doc.text(`Quotation #: ${quotationData.quotationNumber}`, 20, 40);
     doc.text(`Date: ${quotationData.date}`, 20, 47);
     if (quotationData.expiryDate) doc.text(`Valid Until: ${quotationData.expiryDate}`, 20, 54);
-    doc.text(`Region: ${currentRegion.label}`, 20, 61);
 
     // Sender Details
     doc.setFontSize(11);
@@ -136,17 +91,8 @@ export default function QuotationGenerator() {
     doc.text(quotationData.senderEmail || "your@email.com", 20, currentY);
     currentY += 7;
     
-    // Add regional IDs for Sender
-    if (region === "INDIA") {
-      if (quotationData.senderGstin) { doc.text(`GSTIN: ${quotationData.senderGstin}`, 20, currentY); currentY += 7; }
-      if (quotationData.senderCin) { doc.text(`CIN: ${quotationData.senderCin}`, 20, currentY); currentY += 7; }
-    } else if (region === "US" && quotationData.senderEin) {
-      doc.text(`EIN: ${quotationData.senderEin}`, 20, currentY); currentY += 7;
-    } else if (region === "EU" && quotationData.senderVat) {
-      doc.text(`VAT: ${quotationData.senderVat}`, 20, currentY); currentY += 7;
-    } else if (region === "MIDDLE_EAST" && quotationData.senderTrn) {
-      doc.text(`TRN: ${quotationData.senderTrn}`, 20, currentY); currentY += 7;
-    }
+    if (quotationData.senderGstin) { doc.text(`GSTIN: ${quotationData.senderGstin}`, 20, currentY); currentY += 7; }
+    if (quotationData.senderCin) { doc.text(`CIN: ${quotationData.senderCin}`, 20, currentY); currentY += 7; }
     
     doc.text(quotationData.senderAddress || "Your Address", 20, currentY);
 
@@ -160,10 +106,8 @@ export default function QuotationGenerator() {
     doc.text(quotationData.clientEmail || "client@email.com", 120, currentY);
     currentY += 7;
     
-    if (region === "INDIA" && quotationData.clientGstin) {
+    if (quotationData.clientGstin) {
       doc.text(`GSTIN: ${quotationData.clientGstin}`, 120, currentY); currentY += 7;
-    } else if (region === "EU" && quotationData.clientVat) {
-      doc.text(`VAT: ${quotationData.clientVat}`, 120, currentY); currentY += 7;
     }
     
     doc.text(quotationData.clientAddress || "Client Address", 120, currentY);
@@ -171,21 +115,21 @@ export default function QuotationGenerator() {
     const tableData = quotationData.items.map(item => [
       item.description,
       item.quantity.toString(),
-      `${currentRegion.symbol}${item.price.toFixed(2)}`,
-      `${currentRegion.symbol}${(item.quantity * item.price).toFixed(2)}`
+      `${symbol}${item.price.toFixed(2)}`,
+      `${symbol}${(item.quantity * item.price).toFixed(2)}`
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: currentY + 15,
       head: [["Description", "Quantity", "Price", "Total"]],
       body: tableData,
     });
 
     const finalY = doc.lastAutoTable.finalY + 10;
-    doc.text(`Subtotal: ${currentRegion.symbol}${subtotal.toFixed(2)}`, 140, finalY);
-    doc.text(`${currentRegion.taxLabel} (${quotationData.taxRate}%): ${currentRegion.symbol}${tax.toFixed(2)}`, 140, finalY + 7);
+    doc.text(`Subtotal: ${symbol}${subtotal.toFixed(2)}`, 140, finalY);
+    doc.text(`GST (${quotationData.taxRate}%): ${symbol}${tax.toFixed(2)}`, 140, finalY + 7);
     doc.setFontSize(14);
-    doc.text(`Total: ${currentRegion.symbol}${total.toFixed(2)}`, 140, finalY + 16);
+    doc.text(`Total: ${symbol}${total.toFixed(2)}`, 140, finalY + 16);
 
     if (quotationData.notes) {
       doc.setFontSize(10);
@@ -193,7 +137,149 @@ export default function QuotationGenerator() {
       doc.text(quotationData.notes, 20, finalY + 37);
     }
 
+    // Add Branding
+    const pageHeight = doc.internal.pageSize.height;
+    const pageWidth = doc.internal.pageSize.width;
+    doc.setFontSize(10);
+    doc.setTextColor(128, 128, 128);
+    doc.text("Created with Dabby", pageWidth - 50, pageHeight - 10);
+
     doc.save(`Quotation_${quotationData.quotationNumber}.pdf`);
+  };
+
+  const generateWord = () => {
+    const subtotal = calculateSubtotal();
+    const tax = calculateTax();
+    const total = calculateTotal();
+
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "QUOTATION",
+                bold: true,
+                size: 40,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Quotation #: ${quotationData.quotationNumber}`, bold: true }),
+              new TextRun({ text: `\tDate: ${quotationData.date}`, bold: true }),
+            ],
+            spacing: { after: 200 },
+          }),
+          ...(quotationData.expiryDate ? [
+            new Paragraph({
+              children: [new TextRun({ text: `Valid Until: ${quotationData.expiryDate}`, bold: true })],
+              spacing: { after: 200 },
+            })
+          ] : []),
+
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: "From:", bold: true })] }),
+                      new Paragraph({ text: quotationData.senderName || "Your Name" }),
+                      new Paragraph({ text: quotationData.senderEmail || "your@email.com" }),
+                      ...(quotationData.senderGstin ? [new Paragraph({ text: `GSTIN: ${quotationData.senderGstin}` })] : []),
+                      ...(quotationData.senderCin ? [new Paragraph({ text: `CIN: ${quotationData.senderCin}` })] : []),
+                      new Paragraph({ text: quotationData.senderAddress || "Your Address" }),
+                    ],
+                  }),
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: "For:", bold: true })] }),
+                      new Paragraph({ text: quotationData.clientName || "Client Name" }),
+                      new Paragraph({ text: quotationData.clientEmail || "client@email.com" }),
+                      ...(quotationData.clientGstin ? [new Paragraph({ text: `GSTIN: ${quotationData.clientGstin}` })] : []),
+                      new Paragraph({ text: quotationData.clientAddress || "Client Address" }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 400 } }),
+
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({ children: [new Paragraph({ text: "Description", bold: true })] }),
+                  new TableCell({ children: [new Paragraph({ text: "Quantity", bold: true })] }),
+                  new TableCell({ children: [new Paragraph({ text: "Price (₹)", bold: true })] }),
+                  new TableCell({ children: [new Paragraph({ text: "Total (₹)", bold: true })] }),
+                ],
+              }),
+              ...quotationData.items.map(item => new TableRow({
+                children: [
+                  new TableCell({ children: [new Paragraph({ text: item.description })] }),
+                  new TableCell({ children: [new Paragraph({ text: item.quantity.toString() })] }),
+                  new TableCell({ children: [new Paragraph({ text: item.price.toFixed(2) })] }),
+                  new TableCell({ children: [new Paragraph({ text: (item.quantity * item.price).toFixed(2) })] }),
+                ],
+              })),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 400 } }),
+
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Subtotal: ₹${subtotal.toFixed(2)}` }),
+            ],
+            alignment: AlignmentType.RIGHT,
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `GST (${quotationData.taxRate}%): ₹${tax.toFixed(2)}` }),
+            ],
+            alignment: AlignmentType.RIGHT,
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Total Amount: ₹${total.toFixed(2)}`, bold: true, size: 28 }),
+            ],
+            alignment: AlignmentType.RIGHT,
+            spacing: { before: 200 },
+          }),
+
+          ...(quotationData.notes ? [
+            new Paragraph({ text: "", spacing: { before: 400 } }),
+            new Paragraph({ children: [new TextRun({ text: "Notes:", bold: true })] }),
+            new Paragraph({ text: quotationData.notes }),
+          ] : []),
+
+          new Paragraph({ text: "", spacing: { before: 400 } }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Created with Dabby", color: "808080", size: 20 }),
+            ],
+            alignment: AlignmentType.RIGHT,
+          }),
+        ],
+      }],
+    });
+
+    Packer.toBlob(doc).then(blob => {
+      saveAs(blob, `Quotation_${quotationData.quotationNumber}.docx`);
+    });
   };
 
   return (
@@ -211,38 +297,50 @@ export default function QuotationGenerator() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
             <div>
               <h1 className="text-3xl font-bold mb-2">Quotation Generator</h1>
-              <div className="flex items-center gap-2 text-sm opacity-70">
-                <Globe className="w-4 h-4" />
-                <span>Selected Region: {REGIONS[region].label}</span>
-              </div>
+              <p className="text-sm opacity-70">Create professional quotations for your clients</p>
             </div>
-            <button
-              onClick={generatePDF}
-              className="flex items-center gap-2 bg-[#81E6D9] text-black px-6 py-3 rounded-full font-semibold hover:bg-[#71d6c9] transition-all"
-            >
-              <Download className="w-5 h-5" /> Download PDF
-            </button>
-          </div>
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="flex items-center gap-2 bg-[#81E6D9] text-black px-6 py-3 rounded-full font-semibold hover:bg-[#71d6c9] transition-all"
+              >
+                <Download className="w-5 h-5" /> Export Document <ChevronDown className={`w-4 h-4 transition-transform ${showExportMenu ? "rotate-180" : ""}`} />
+              </button>
 
-          {/* Region Selection */}
-          <div className="mb-12">
-            <h2 className="text-lg font-semibold border-b pb-2 mb-4">Select Region</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Object.entries(REGIONS).map(([key, value]) => (
-                <button
-                  key={key}
-                  onClick={() => setRegion(key)}
-                  className={`p-4 rounded-2xl border transition-all text-sm font-medium ${
-                    region === key
-                      ? "border-[#81E6D9] bg-[#81E6D9]/10 text-[#81E6D9]"
-                      : theme === "dark"
-                      ? "border-white/10 bg-white/5 hover:border-white/30"
-                      : "border-gray-200 bg-gray-50 hover:border-gray-400"
-                  }`}
-                >
-                  {value.label}
-                </button>
-              ))}
+              {showExportMenu && (
+                <div className={`absolute right-0 mt-2 w-48 rounded-2xl shadow-xl border z-50 overflow-hidden ${
+                  theme === "dark" ? "bg-[#1a1a1a] border-white/10" : "bg-white border-gray-200"
+                }`}>
+                  <button
+                    onClick={() => {
+                      generatePDF();
+                      setShowExportMenu(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[#81E6D9]/10 transition-colors ${
+                      theme === "dark" ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                      <Download className="w-4 h-4 text-red-500" />
+                    </div>
+                    Download PDF
+                  </button>
+                  <button
+                    onClick={() => {
+                      generateWord();
+                      setShowExportMenu(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[#81E6D9]/10 transition-colors ${
+                      theme === "dark" ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                      <Globe className="w-4 h-4 text-blue-500" />
+                    </div>
+                    Download Word
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -292,7 +390,7 @@ export default function QuotationGenerator() {
             <div className="space-y-4">
               <h2 className="text-lg font-semibold border-b pb-2 mb-4">Tax & Currency</h2>
               <div>
-                <label className="block text-sm font-medium mb-1 opacity-70">{REGIONS[region].taxLabel} Rate (%)</label>
+                <label className="block text-sm font-medium mb-1 opacity-70">GST Rate (%)</label>
                 <input
                   type="number"
                   name="taxRate"
@@ -304,7 +402,7 @@ export default function QuotationGenerator() {
                 />
               </div>
               <div className="p-4 rounded-xl bg-[#81E6D9]/5 border border-[#81E6D9]/20">
-                <p className="text-xs opacity-70">Currency for this region: <span className="font-bold text-[#81E6D9]">{REGIONS[region].currency} ({REGIONS[region].symbol})</span></p>
+                <p className="text-xs opacity-70">Default Currency: <span className="font-bold text-[#81E6D9]">INR (₹)</span></p>
               </div>
             </div>
           </div>
@@ -323,57 +421,24 @@ export default function QuotationGenerator() {
                 }`}
               />
               
-              {/* Regional Fields for Sender */}
-              {region === "INDIA" && (
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    name="senderGstin"
-                    placeholder="GST Number"
-                    value={quotationData.senderGstin}
-                    onChange={handleInputChange}
-                    className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"}`}
-                  />
-                  <input
-                    type="text"
-                    name="senderCin"
-                    placeholder="CIN"
-                    value={quotationData.senderCin}
-                    onChange={handleInputChange}
-                    className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"}`}
-                  />
-                </div>
-              )}
-              {region === "US" && (
+              <div className="grid grid-cols-2 gap-4">
                 <input
                   type="text"
-                  name="senderEin"
-                  placeholder="EIN Number"
-                  value={quotationData.senderEin}
+                  name="senderGstin"
+                  placeholder="GST Number"
+                  value={quotationData.senderGstin}
                   onChange={handleInputChange}
                   className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"}`}
                 />
-              )}
-              {region === "EU" && (
                 <input
                   type="text"
-                  name="senderVat"
-                  placeholder="VAT Number"
-                  value={quotationData.senderVat}
+                  name="senderCin"
+                  placeholder="CIN"
+                  value={quotationData.senderCin}
                   onChange={handleInputChange}
                   className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"}`}
                 />
-              )}
-              {region === "MIDDLE_EAST" && (
-                <input
-                  type="text"
-                  name="senderTrn"
-                  placeholder="TRN Number"
-                  value={quotationData.senderTrn}
-                  onChange={handleInputChange}
-                  className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"}`}
-                />
-              )}
+              </div>
 
               <input
                 type="email"
@@ -410,27 +475,14 @@ export default function QuotationGenerator() {
                 }`}
               />
 
-              {/* Regional Fields for Client */}
-              {region === "INDIA" && (
-                <input
-                  type="text"
-                  name="clientGstin"
-                  placeholder="Client GST Number"
-                  value={quotationData.clientGstin}
-                  onChange={handleInputChange}
-                  className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"}`}
-                />
-              )}
-              {region === "EU" && (
-                <input
-                  type="text"
-                  name="clientVat"
-                  placeholder="Client VAT Number"
-                  value={quotationData.clientVat}
-                  onChange={handleInputChange}
-                  className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"}`}
-                />
-              )}
+              <input
+                type="text"
+                name="clientGstin"
+                placeholder="Client GST Number"
+                value={quotationData.clientGstin}
+                onChange={handleInputChange}
+                className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"}`}
+              />
 
               <input
                 type="email"
@@ -486,7 +538,7 @@ export default function QuotationGenerator() {
                     />
                   </div>
                   <div className="col-span-3">
-                    <label className="block text-xs font-medium mb-1 opacity-70">Price ({REGIONS[region].symbol})</label>
+                    <label className="block text-xs font-medium mb-1 opacity-70">Price (₹)</label>
                     <input
                       type="number"
                       name="price"
@@ -533,15 +585,15 @@ export default function QuotationGenerator() {
             <div className="w-full md:w-64 space-y-3">
               <div className="flex justify-between">
                 <span className="opacity-70">Subtotal</span>
-                <span>{REGIONS[region].symbol}{calculateSubtotal().toFixed(2)}</span>
+                <span>₹{calculateSubtotal().toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="opacity-70">{REGIONS[region].taxLabel} ({quotationData.taxRate}%)</span>
-                <span>{REGIONS[region].symbol}{calculateTax().toFixed(2)}</span>
+                <span className="opacity-70">GST ({quotationData.taxRate}%)</span>
+                <span>₹{calculateTax().toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-xl font-bold pt-3 border-t border-white/10">
                 <span>Total Quote</span>
-                <span className="text-[#81E6D9]">{REGIONS[region].symbol}{calculateTotal().toFixed(2)}</span>
+                <span className="text-[#81E6D9]">₹{calculateTotal().toFixed(2)}</span>
               </div>
             </div>
           </div>
