@@ -4,7 +4,10 @@ import { useTheme } from "../../context/ThemeContext";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Download, Plus, Trash2, Globe } from "lucide-react";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle } from "docx";
+import { saveAs } from "file-saver";
+import { ChevronDown } from "lucide-react";
 
 const REGIONS = {
   INDIA: {
@@ -44,6 +47,7 @@ const REGIONS = {
 export default function InvoiceGenerator() {
   const { theme } = useTheme();
   const [region, setRegion] = useState("INDIA");
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [invoiceData, setInvoiceData] = useState({
     invoiceNumber: "INV-001",
     date: new Date().toISOString().split('T')[0],
@@ -176,7 +180,7 @@ export default function InvoiceGenerator() {
       `${currentRegion.symbol}${(item.quantity * item.price).toFixed(2)}`
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: currentY + 15,
       head: [["Description", "Quantity", "Price", "Total"]],
       body: tableData,
@@ -194,7 +198,138 @@ export default function InvoiceGenerator() {
       doc.text(invoiceData.notes, 20, finalY + 37);
     }
 
+    // Add Branding
+    const pageHeight = doc.internal.pageSize.height;
+    const pageWidth = doc.internal.pageSize.width;
+    doc.setFontSize(10);
+    doc.setTextColor(128, 128, 128);
+    doc.text("Created with Dabby", pageWidth - 50, pageHeight - 10);
+
     doc.save(`Invoice_${invoiceData.invoiceNumber}.pdf`);
+  };
+
+  const generateWord = () => {
+    const subtotal = calculateSubtotal();
+    const tax = calculateTax();
+    const total = calculateTotal();
+    const currentRegion = REGIONS[region];
+
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({ text: "INVOICE", bold: true, size: 40 }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Invoice #: ${invoiceData.invoiceNumber}`, bold: true }),
+            ],
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Date: ${invoiceData.date}` }),
+            ],
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Region: ${currentRegion.label}` }),
+            ],
+            spacing: { after: 400 },
+          }),
+
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({ children: [new Paragraph("From:")] }),
+                  new TableCell({ children: [new Paragraph("Bill To:")] }),
+                ],
+              }),
+              new TableRow({
+                children: [
+                  new TableCell({
+                    children: [
+                      new Paragraph(invoiceData.senderName || "Your Business"),
+                      new Paragraph(invoiceData.senderEmail || "your@email.com"),
+                      new Paragraph(invoiceData.senderAddress || "Your Address"),
+                    ],
+                  }),
+                  new TableCell({
+                    children: [
+                      new Paragraph(invoiceData.clientName || "Client Name"),
+                      new Paragraph(invoiceData.clientEmail || "client@email.com"),
+                      new Paragraph(invoiceData.clientAddress || "Client Address"),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 400 } }),
+
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({ children: [new Paragraph({ text: "Description", bold: true })] }),
+                  new TableCell({ children: [new Paragraph({ text: "Quantity", bold: true })] }),
+                  new TableCell({ children: [new Paragraph({ text: "Price", bold: true })] }),
+                  new TableCell({ children: [new Paragraph({ text: "Total", bold: true })] }),
+                ],
+              }),
+              ...invoiceData.items.map(item => new TableRow({
+                children: [
+                  new TableCell({ children: [new Paragraph(item.description)] }),
+                  new TableCell({ children: [new Paragraph(item.quantity.toString())] }),
+                  new TableCell({ children: [new Paragraph(`${currentRegion.symbol}${item.price.toFixed(2)}`)] }),
+                  new TableCell({ children: [new Paragraph(`${currentRegion.symbol}${(item.quantity * item.price).toFixed(2)}`)] }),
+                ],
+              })),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 400 } }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Subtotal: ${currentRegion.symbol}${subtotal.toFixed(2)}` }),
+            ],
+            alignment: AlignmentType.RIGHT,
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `${currentRegion.taxLabel} (${invoiceData.taxRate}%): ${currentRegion.symbol}${tax.toFixed(2)}` }),
+            ],
+            alignment: AlignmentType.RIGHT,
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: `Total: ${currentRegion.symbol}${total.toFixed(2)}`, bold: true, size: 28 }),
+            ],
+            alignment: AlignmentType.RIGHT,
+          }),
+          
+          new Paragraph({ text: "", spacing: { before: 400 } }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Created with Dabby", color: "808080", size: 20 }),
+            ],
+            alignment: AlignmentType.RIGHT,
+          }),
+        ],
+      }],
+    });
+
+    Packer.toBlob(doc).then(blob => {
+      saveAs(blob, `Invoice_${invoiceData.invoiceNumber}.docx`);
+    });
   };
 
   return (
@@ -217,12 +352,43 @@ export default function InvoiceGenerator() {
                 <span>Selected Region: {REGIONS[region].label}</span>
               </div>
             </div>
-            <button
-              onClick={generatePDF}
-              className="flex items-center gap-2 bg-[#81E6D9] text-black px-6 py-3 rounded-full font-semibold hover:bg-[#71d6c9] transition-all"
-            >
-              <Download className="w-5 h-5" /> Download PDF
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="flex items-center gap-2 bg-[#81E6D9] text-black px-6 py-3 rounded-full font-semibold hover:bg-[#71d6c9] transition-all"
+              >
+                <Download className="w-5 h-5" /> Download <ChevronDown className={`w-4 h-4 transition-transform ${showExportMenu ? "rotate-180" : ""}`} />
+              </button>
+              
+              {showExportMenu && (
+                <div className={`absolute right-0 mt-2 w-48 rounded-2xl shadow-xl border z-10 overflow-hidden ${
+                  theme === "dark" ? "bg-[#1A1A1A] border-white/10" : "bg-white border-gray-200"
+                }`}>
+                  <button
+                    onClick={() => {
+                      generatePDF();
+                      setShowExportMenu(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 text-sm hover:bg-[#81E6D9]/10 transition-colors ${
+                      theme === "dark" ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    Download as PDF
+                  </button>
+                  <button
+                    onClick={() => {
+                      generateWord();
+                      setShowExportMenu(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 text-sm hover:bg-[#81E6D9]/10 transition-colors ${
+                      theme === "dark" ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    Download as Word
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Region Selection */}
