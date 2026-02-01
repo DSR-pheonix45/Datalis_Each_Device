@@ -72,45 +72,76 @@ export default function PurchaseOrderGenerator() {
     const tax = calculateTax();
     const total = calculateTotal();
     const symbol = "₹";
+    const primaryColor = [0, 71, 171]; // Royal Blue
 
-    doc.setFontSize(20);
-    doc.text("PURCHASE ORDER", 105, 20, { align: "center" });
+    // Header Bar
+    doc.setFillColor(...primaryColor);
+    doc.rect(0, 0, 210, 40, 'F');
 
+    // Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text("PURCHASE ORDER", 105, 25, { align: "center" });
+
+    // Document Info
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
-    doc.text(`PO #: ${poData.poNumber}`, 20, 40);
-    doc.text(`Date: ${poData.date}`, 20, 47);
-    if (poData.deliveryDate) doc.text(`Delivery Date: ${poData.deliveryDate}`, 20, 54);
+    doc.setFont("helvetica", "bold");
+    doc.text(`PO #:`, 20, 55);
+    doc.setFont("helvetica", "normal");
+    doc.text(poData.poNumber, 45, 55);
 
-    // Ship To Details
-    doc.setFontSize(11);
-    doc.text("Ship To:", 20, 75);
-    doc.setFontSize(10);
-    let currentY = 82;
-    doc.text(poData.senderName || "Your Company", 20, currentY);
-    currentY += 7;
-    doc.text(poData.senderEmail || "your@email.com", 20, currentY);
-    currentY += 7;
-    
-    if (poData.senderGstin) { doc.text(`GSTIN: ${poData.senderGstin}`, 20, currentY); currentY += 7; }
-    if (poData.senderCin) { doc.text(`CIN: ${poData.senderCin}`, 20, currentY); currentY += 7; }
-    
-    doc.text(poData.senderAddress || "Your Address", 20, currentY);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Date:`, 20, 62);
+    doc.setFont("helvetica", "normal");
+    doc.text(poData.date, 45, 62);
 
-    // Vendor Details
-    doc.setFontSize(11);
-    doc.text("Vendor:", 120, 75);
-    doc.setFontSize(10);
-    currentY = 82;
-    doc.text(poData.vendorName || "Vendor Name", 120, currentY);
-    currentY += 7;
-    doc.text(poData.vendorEmail || "vendor@email.com", 120, currentY);
-    currentY += 7;
-    
-    if (poData.vendorGstin) {
-      doc.text(`GSTIN: ${poData.vendorGstin}`, 120, currentY); currentY += 7;
+    if (poData.deliveryDate) {
+      doc.setFont("helvetica", "bold");
+      doc.text(`Delivery:`, 20, 69);
+      doc.setFont("helvetica", "normal");
+      doc.text(poData.deliveryDate, 45, 69);
     }
+
+    // Section Headers
+    doc.setFillColor(240, 240, 240);
+    doc.rect(20, 80, 80, 8, 'F');
+    doc.rect(110, 80, 80, 8, 'F');
     
-    doc.text(poData.vendorAddress || "Vendor Address", 120, currentY);
+    doc.setFont("helvetica", "bold");
+    doc.text("SHIP TO", 25, 86);
+    doc.text("VENDOR", 115, 86);
+
+    // Details
+    doc.setFont("helvetica", "normal");
+    let shipY = 95;
+    doc.text(poData.senderName || "Your Company", 20, shipY);
+    shipY += 6;
+    doc.text(poData.senderEmail || "your@email.com", 20, shipY);
+    shipY += 6;
+    if (poData.senderGstin) {
+      doc.text(`GSTIN: ${poData.senderGstin}`, 20, shipY);
+      shipY += 6;
+    }
+    const shipAddrLines = doc.splitTextToSize(poData.senderAddress || "Your Address", 80);
+    doc.text(shipAddrLines, 20, shipY);
+    shipY += (shipAddrLines.length * 6);
+
+    let vendorY = 95;
+    doc.text(poData.vendorName || "Vendor Name", 110, vendorY);
+    vendorY += 6;
+    doc.text(poData.vendorEmail || "vendor@email.com", 110, vendorY);
+    vendorY += 6;
+    if (poData.vendorGstin) {
+      doc.text(`GSTIN: ${poData.vendorGstin}`, 110, vendorY);
+      vendorY += 6;
+    }
+    const vendorAddrLines = doc.splitTextToSize(poData.vendorAddress || "Vendor Address", 80);
+    doc.text(vendorAddrLines, 110, vendorY);
+    vendorY += (vendorAddrLines.length * 6);
+
+    const tableStartY = Math.max(shipY, vendorY) + 10;
 
     const tableData = poData.items.map(item => [
       item.description,
@@ -120,29 +151,58 @@ export default function PurchaseOrderGenerator() {
     ]);
 
     autoTable(doc, {
-      startY: currentY + 15,
+      startY: tableStartY,
       head: [["Description", "Quantity", "Price", "Total"]],
       body: tableData,
+      theme: 'striped',
+      headStyles: { fillStyle: 'F', fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 10, cellPadding: 5 },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 25, halign: 'center' },
+        2: { cellWidth: 35, halign: 'right' },
+        3: { cellWidth: 35, halign: 'right' }
+      }
     });
 
-    const finalY = doc.lastAutoTable.finalY + 10;
-    doc.text(`Subtotal: ${symbol}${subtotal.toFixed(2)}`, 140, finalY);
-    doc.text(`GST (${poData.taxRate}%): ${symbol}${tax.toFixed(2)}`, 140, finalY + 7);
-    doc.setFontSize(14);
-    doc.text(`Total: ${symbol}${total.toFixed(2)}`, 140, finalY + 16);
+    let finalY = doc.lastAutoTable.finalY + 10;
+    
+    // Totals Section
+    doc.setFont("helvetica", "normal");
+    doc.text("Subtotal:", 140, finalY);
+    doc.text(`${symbol}${subtotal.toFixed(2)}`, 190, finalY, { align: "right" });
+    
+    finalY += 7;
+    doc.text(`GST (${poData.taxRate}%):`, 140, finalY);
+    doc.text(`${symbol}${tax.toFixed(2)}`, 190, finalY, { align: "right" });
+    
+    finalY += 10;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setFillColor(...primaryColor);
+    doc.rect(135, finalY - 6, 60, 10, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.text("Total Amount:", 140, finalY);
+    doc.text(`${symbol}${total.toFixed(2)}`, 190, finalY, { align: "right" });
 
     if (poData.notes) {
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(10);
-      doc.text("Terms & Instructions:", 20, finalY + 30);
-      doc.text(poData.notes, 20, finalY + 37);
+      doc.setFont("helvetica", "bold");
+      finalY += 20;
+      doc.text("Terms & Instructions:", 20, finalY);
+      doc.setFont("helvetica", "normal");
+      const noteLines = doc.splitTextToSize(poData.notes, 170);
+      doc.text(noteLines, 20, finalY + 7);
+      finalY += (noteLines.length * 6) + 10;
     }
 
-    // Add Branding
+    // Footer Branding
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
-    doc.setFontSize(10);
-    doc.setTextColor(128, 128, 128);
-    doc.text("Created with Dabby", pageWidth - 50, pageHeight - 10);
+    doc.setFontSize(9);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Professional Document Generated via Dabby", pageWidth / 2, pageHeight - 10, { align: "center" });
 
     doc.save(`PO_${poData.poNumber}.pdf`);
   };
@@ -156,57 +216,23 @@ export default function PurchaseOrderGenerator() {
       sections: [{
         properties: {},
         children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "PURCHASE ORDER",
-                bold: true,
-                size: 40,
-              }),
-            ],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 400 },
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: `PO #: ${poData.poNumber}`, bold: true }),
-              new TextRun({ text: `\tDate: ${poData.date}`, bold: true }),
-            ],
-            spacing: { after: 200 },
-          }),
-          ...(poData.deliveryDate ? [
-            new Paragraph({
-              children: [new TextRun({ text: `Expected Delivery: ${poData.deliveryDate}`, bold: true })],
-              spacing: { after: 200 },
-            })
-          ] : []),
-
+          // Header Bar replacement in Word
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: BorderStyle.NONE,
             rows: [
               new TableRow({
                 children: [
                   new TableCell({
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
+                    shading: { fill: "0047AB" },
+                    margins: { top: 400, bottom: 400, left: 400, right: 400 },
                     children: [
-                      new Paragraph({ children: [new TextRun({ text: "Ship To:", bold: true })] }),
-                      new Paragraph({ text: poData.senderName || "Your Company" }),
-                      new Paragraph({ text: poData.senderEmail || "your@email.com" }),
-                      ...(poData.senderGstin ? [new Paragraph({ text: `GSTIN: ${poData.senderGstin}` })] : []),
-                      ...(poData.senderCin ? [new Paragraph({ text: `CIN: ${poData.senderCin}` })] : []),
-                      new Paragraph({ text: poData.senderAddress || "Your Address" }),
-                    ],
-                  }),
-                  new TableCell({
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
-                    children: [
-                      new Paragraph({ children: [new TextRun({ text: "Vendor:", bold: true })] }),
-                      new Paragraph({ text: poData.vendorName || "Vendor Name" }),
-                      new Paragraph({ text: poData.vendorEmail || "vendor@email.com" }),
-                      ...(poData.vendorGstin ? [new Paragraph({ text: `GSTIN: ${poData.vendorGstin}` })] : []),
-                      new Paragraph({ text: poData.vendorAddress || "Vendor Address" }),
+                      new Paragraph({
+                        children: [
+                          new TextRun({ text: "PURCHASE ORDER", bold: true, size: 48, color: "FFFFFF" }),
+                        ],
+                        alignment: AlignmentType.CENTER,
+                      }),
                     ],
                   }),
                 ],
@@ -216,23 +242,92 @@ export default function PurchaseOrderGenerator() {
 
           new Paragraph({ text: "", spacing: { before: 400 } }),
 
+          // Document Info
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: BorderStyle.NONE,
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: "PO #: ", bold: true }), new TextRun({ text: poData.poNumber })] }),
+                      new Paragraph({ children: [new TextRun({ text: "Date: ", bold: true }), new TextRun({ text: poData.date })] }),
+                      ...(poData.deliveryDate ? [new Paragraph({ children: [new TextRun({ text: "Delivery: ", bold: true }), new TextRun({ text: poData.deliveryDate })] })] : []),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 400 } }),
+
+          // Ship To / Vendor
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [
               new TableRow({
                 children: [
-                  new TableCell({ children: [new Paragraph({ text: "Description", bold: true })] }),
-                  new TableCell({ children: [new Paragraph({ text: "Quantity", bold: true })] }),
-                  new TableCell({ children: [new Paragraph({ text: "Price (₹)", bold: true })] }),
-                  new TableCell({ children: [new Paragraph({ text: "Total (₹)", bold: true })] }),
+                  new TableCell({
+                    shading: { fill: "F2F2F2" },
+                    children: [new Paragraph({ children: [new TextRun({ text: "SHIP TO", bold: true, size: 20 })] })],
+                    margins: { left: 100, top: 100, bottom: 100 },
+                  }),
+                  new TableCell({
+                    shading: { fill: "F2F2F2" },
+                    children: [new Paragraph({ children: [new TextRun({ text: "VENDOR", bold: true, size: 20 })] })],
+                    margins: { left: 100, top: 100, bottom: 100 },
+                  }),
+                ],
+              }),
+              new TableRow({
+                children: [
+                  new TableCell({
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: poData.senderName || "Your Company", bold: true })] }),
+                      new Paragraph({ text: poData.senderEmail || "your@email.com" }),
+                      ...(poData.senderGstin ? [new Paragraph({ text: `GSTIN: ${poData.senderGstin}` })] : []),
+                      new Paragraph({ text: poData.senderAddress || "Your Address" }),
+                    ],
+                    borders: BorderStyle.NONE,
+                    margins: { top: 200, bottom: 200, left: 100 },
+                  }),
+                  new TableCell({
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: poData.vendorName || "Vendor Name", bold: true })] }),
+                      new Paragraph({ text: poData.vendorEmail || "vendor@email.com" }),
+                      ...(poData.vendorGstin ? [new Paragraph({ text: `GSTIN: ${poData.vendorGstin}` })] : []),
+                      new Paragraph({ text: poData.vendorAddress || "Vendor Address" }),
+                    ],
+                    borders: BorderStyle.NONE,
+                    margins: { top: 200, bottom: 200, left: 100 },
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 400, after: 400 } }),
+
+          // Items Table
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Description", bold: true, color: "FFFFFF" })] })] }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Quantity", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.CENTER }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Price (₹)", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.RIGHT }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Total (₹)", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.RIGHT }),
                 ],
               }),
               ...poData.items.map(item => new TableRow({
                 children: [
-                  new TableCell({ children: [new Paragraph({ text: item.description })] }),
-                  new TableCell({ children: [new Paragraph({ text: item.quantity.toString() })] }),
-                  new TableCell({ children: [new Paragraph({ text: item.price.toFixed(2) })] }),
-                  new TableCell({ children: [new Paragraph({ text: (item.quantity * item.price).toFixed(2) })] }),
+                  new TableCell({ children: [new Paragraph({ text: item.description })], margins: { left: 100, top: 100, bottom: 100 } }),
+                  new TableCell({ children: [new Paragraph({ text: item.quantity.toString(), alignment: AlignmentType.CENTER })], margins: { top: 100, bottom: 100 } }),
+                  new TableCell({ children: [new Paragraph({ text: item.price.toFixed(2), alignment: AlignmentType.RIGHT })], margins: { top: 100, bottom: 100, right: 100 } }),
+                  new TableCell({ children: [new Paragraph({ text: (item.quantity * item.price).toFixed(2), alignment: AlignmentType.RIGHT })], margins: { top: 100, bottom: 100, right: 100 } }),
                 ],
               })),
             ],
@@ -240,6 +335,7 @@ export default function PurchaseOrderGenerator() {
 
           new Paragraph({ text: "", spacing: { before: 400 } }),
 
+          // Totals Section
           new Paragraph({
             children: [
               new TextRun({ text: `Subtotal: ₹${subtotal.toFixed(2)}` }),
@@ -254,7 +350,7 @@ export default function PurchaseOrderGenerator() {
           }),
           new Paragraph({
             children: [
-              new TextRun({ text: `Total Amount: ₹${total.toFixed(2)}`, bold: true, size: 28 }),
+              new TextRun({ text: `Total Amount: ₹${total.toFixed(2)}`, bold: true, size: 28, color: "0047AB" }),
             ],
             alignment: AlignmentType.RIGHT,
             spacing: { before: 200 },
@@ -266,12 +362,12 @@ export default function PurchaseOrderGenerator() {
             new Paragraph({ text: poData.notes }),
           ] : []),
 
-          new Paragraph({ text: "", spacing: { before: 400 } }),
+          new Paragraph({ text: "", spacing: { before: 1200 } }),
           new Paragraph({
             children: [
-              new TextRun({ text: "Created with Dabby", color: "808080", size: 20 }),
+              new TextRun({ text: "Professional Document Generated via Dabby", color: "808080", size: 18, italic: true }),
             ],
-            alignment: AlignmentType.RIGHT,
+            alignment: AlignmentType.CENTER,
           }),
         ],
       }],

@@ -48,40 +48,74 @@ export default function DeliveryChallanGenerator() {
 
   const generatePDF = () => {
     const doc = new jsPDF();
+    const primaryColor = [0, 71, 171]; // Royal Blue
 
-    doc.setFontSize(20);
-    doc.text("DELIVERY CHALLAN", 105, 20, { align: "center" });
+    // Header Bar
+    doc.setFillColor(...primaryColor);
+    doc.rect(0, 0, 210, 40, 'F');
 
+    // Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text("DELIVERY CHALLAN", 105, 25, { align: "center" });
+
+    // Document Info
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
-    doc.text(`Challan #: ${challanData.challanNumber}`, 20, 40);
-    doc.text(`Date: ${challanData.date}`, 20, 47);
-    doc.text(`Vehicle #: ${challanData.vehicleNumber || "N/A"}`, 20, 54);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Challan #:`, 20, 55);
+    doc.setFont("helvetica", "normal");
+    doc.text(challanData.challanNumber, 45, 55);
 
-    // Sender Details
-    let senderY = 77;
-    doc.text("From (Consignor):", 20, 70);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Date:`, 20, 62);
+    doc.setFont("helvetica", "normal");
+    doc.text(challanData.date, 45, 62);
+
+    doc.setFont("helvetica", "bold");
+    doc.text(`Vehicle #:`, 20, 69);
+    doc.setFont("helvetica", "normal");
+    doc.text(challanData.vehicleNumber || "N/A", 45, 69);
+
+    // Section Headers
+    doc.setFillColor(240, 240, 240);
+    doc.rect(20, 80, 80, 8, 'F');
+    doc.rect(110, 80, 80, 8, 'F');
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("FROM (CONSIGNOR)", 25, 86);
+    doc.text("TO (CONSIGNEE)", 115, 86);
+
+    // Details
+    doc.setFont("helvetica", "normal");
+    let senderY = 95;
     doc.text(challanData.senderName || "Sender Name", 20, senderY);
-    senderY += 7;
+    senderY += 6;
     if (challanData.senderGstin) {
       doc.text(`GSTIN: ${challanData.senderGstin}`, 20, senderY);
-      senderY += 7;
+      senderY += 6;
     }
     if (challanData.senderCin) {
       doc.text(`CIN: ${challanData.senderCin}`, 20, senderY);
-      senderY += 7;
+      senderY += 6;
     }
-    doc.text(challanData.senderAddress || "Address", 20, senderY);
+    const senderAddrLines = doc.splitTextToSize(challanData.senderAddress || "Address", 80);
+    doc.text(senderAddrLines, 20, senderY);
+    senderY += (senderAddrLines.length * 6);
 
-    // Receiver Details
-    let receiverY = 77;
-    doc.text("To (Consignee):", 120, 70);
-    doc.text(challanData.receiverName || "Receiver Name", 120, receiverY);
-    receiverY += 7;
+    let receiverY = 95;
+    doc.text(challanData.receiverName || "Receiver Name", 110, receiverY);
+    receiverY += 6;
     if (challanData.receiverGstin) {
-      doc.text(`GSTIN: ${challanData.receiverGstin}`, 120, receiverY);
-      receiverY += 7;
+      doc.text(`GSTIN: ${challanData.receiverGstin}`, 110, receiverY);
+      receiverY += 6;
     }
-    doc.text(challanData.receiverAddress || "Address", 120, receiverY);
+    const receiverAddrLines = doc.splitTextToSize(challanData.receiverAddress || "Address", 80);
+    doc.text(receiverAddrLines, 110, receiverY);
+    receiverY += (receiverAddrLines.length * 6);
+
+    const tableStartY = Math.max(senderY, receiverY) + 10;
 
     const tableData = challanData.items.map(item => [
       item.description,
@@ -90,16 +124,36 @@ export default function DeliveryChallanGenerator() {
     ]);
 
     autoTable(doc, {
-      startY: Math.max(senderY, receiverY) + 10,
+      startY: tableStartY,
       head: [["Description of Goods", "Quantity", "Unit"]],
       body: tableData,
-      theme: 'grid',
-      headStyles: { fillGray: [240, 240, 240], textColor: [0, 0, 0] }
+      theme: 'striped',
+      headStyles: { fillStyle: 'F', fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 10, cellPadding: 5 },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 30, halign: 'center' },
+        2: { cellWidth: 30, halign: 'center' }
+      }
     });
 
-    const finalY = doc.lastAutoTable.finalY + 20;
-    doc.text("Receiver's Signature", 20, finalY);
-    doc.text("Authorized Signatory", 140, finalY);
+    const finalY = doc.lastAutoTable.finalY + 30;
+    
+    // Signatures
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, finalY, 70, finalY);
+    doc.line(140, finalY, 190, finalY);
+    
+    doc.setFontSize(10);
+    doc.text("Receiver's Signature", 45, finalY + 7, { align: "center" });
+    doc.text("Authorized Signatory", 165, finalY + 7, { align: "center" });
+
+    // Footer Branding
+    const pageHeight = doc.internal.pageSize.height;
+    const pageWidth = doc.internal.pageSize.width;
+    doc.setFontSize(9);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Professional Document Generated via Dabby", pageWidth / 2, pageHeight - 10, { align: "center" });
 
     doc.save(`Delivery_Challan_${challanData.challanNumber}.pdf`);
   };
@@ -109,100 +163,152 @@ export default function DeliveryChallanGenerator() {
       sections: [{
         properties: {},
         children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "DELIVERY CHALLAN",
-                bold: true,
-                size: 40,
-              }),
-            ],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 400 },
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: `Challan #: ${challanData.challanNumber}`, bold: true }),
-            ],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: `Date: ${challanData.date}` }),
-            ],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: `Vehicle #: ${challanData.vehicleNumber || "N/A"}` }),
-            ],
-            spacing: { after: 400 },
-          }),
+          // Header Bar replacement in Word
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: BorderStyle.NONE,
             rows: [
               new TableRow({
                 children: [
                   new TableCell({
-                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    shading: { fill: "0047AB" },
+                    margins: { top: 400, bottom: 400, left: 400, right: 400 },
                     children: [
-                      new Paragraph({ children: [new TextRun({ text: "From (Consignor):", bold: true })] }),
-                      new Paragraph({ children: [new TextRun({ text: challanData.senderName || "Sender Name" })] }),
-                      new Paragraph({ children: [new TextRun({ text: challanData.senderGstin ? `GSTIN: ${challanData.senderGstin}` : "" })] }),
-                      new Paragraph({ children: [new TextRun({ text: challanData.senderCin ? `CIN: ${challanData.senderCin}` : "" })] }),
-                      new Paragraph({ children: [new TextRun({ text: challanData.senderAddress || "Address" })] }),
+                      new Paragraph({
+                        children: [
+                          new TextRun({ text: "DELIVERY CHALLAN", bold: true, size: 48, color: "FFFFFF" }),
+                        ],
+                        alignment: AlignmentType.CENTER,
+                      }),
                     ],
-                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
-                  }),
-                  new TableCell({
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    children: [
-                      new Paragraph({ children: [new TextRun({ text: "To (Consignee):", bold: true })] }),
-                      new Paragraph({ children: [new TextRun({ text: challanData.receiverName || "Receiver Name" })] }),
-                      new Paragraph({ children: [new TextRun({ text: challanData.receiverGstin ? `GSTIN: ${challanData.receiverGstin}` : "" })] }),
-                      new Paragraph({ children: [new TextRun({ text: challanData.receiverAddress || "Address" })] }),
-                    ],
-                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
                   }),
                 ],
               }),
             ],
           }),
-          new Paragraph({ text: "", spacing: { before: 400, after: 400 } }),
+
+          new Paragraph({ text: "", spacing: { before: 400 } }),
+
+          // Document Info
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: BorderStyle.NONE,
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: "Challan #: ", bold: true }), new TextRun({ text: challanData.challanNumber })] }),
+                      new Paragraph({ children: [new TextRun({ text: "Date: ", bold: true }), new TextRun({ text: challanData.date })] }),
+                      new Paragraph({ children: [new TextRun({ text: "Vehicle #: ", bold: true }), new TextRun({ text: challanData.vehicleNumber || "N/A" })] }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 400 } }),
+
+          // From/To
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [
               new TableRow({
                 children: [
-                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Description of Goods", bold: true })] })] }),
-                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Quantity", bold: true })] })] }),
-                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Unit", bold: true })] })] }),
+                  new TableCell({
+                    shading: { fill: "F2F2F2" },
+                    children: [new Paragraph({ children: [new TextRun({ text: "FROM (CONSIGNOR)", bold: true, size: 20 })] })],
+                    margins: { left: 100, top: 100, bottom: 100 },
+                  }),
+                  new TableCell({
+                    shading: { fill: "F2F2F2" },
+                    children: [new Paragraph({ children: [new TextRun({ text: "TO (CONSIGNEE)", bold: true, size: 20 })] })],
+                    margins: { left: 100, top: 100, bottom: 100 },
+                  }),
+                ],
+              }),
+              new TableRow({
+                children: [
+                  new TableCell({
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: challanData.senderName || "Sender Name", bold: true })] }),
+                      ...(challanData.senderGstin ? [new Paragraph({ text: `GSTIN: ${challanData.senderGstin}` })] : []),
+                      ...(challanData.senderCin ? [new Paragraph({ text: `CIN: ${challanData.senderCin}` })] : []),
+                      new Paragraph({ text: challanData.senderAddress || "Address" }),
+                    ],
+                    borders: BorderStyle.NONE,
+                    margins: { top: 200, bottom: 200, left: 100 },
+                  }),
+                  new TableCell({
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: challanData.receiverName || "Receiver Name", bold: true })] }),
+                      ...(challanData.receiverGstin ? [new Paragraph({ text: `GSTIN: ${challanData.receiverGstin}` })] : []),
+                      new Paragraph({ text: challanData.receiverAddress || "Address" }),
+                    ],
+                    borders: BorderStyle.NONE,
+                    margins: { top: 200, bottom: 200, left: 100 },
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 400, after: 400 } }),
+
+          // Items Table
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Description of Goods", bold: true, color: "FFFFFF" })] })] }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Quantity", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.CENTER }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Unit", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.CENTER }),
                 ],
               }),
               ...challanData.items.map(item => new TableRow({
                 children: [
-                  new TableCell({ children: [new Paragraph({ text: item.description })] }),
-                  new TableCell({ children: [new Paragraph({ text: item.quantity.toString() })] }),
-                  new TableCell({ children: [new Paragraph({ text: item.unit })] }),
+                  new TableCell({ children: [new Paragraph({ text: item.description })], margins: { left: 100, top: 100, bottom: 100 } }),
+                  new TableCell({ children: [new Paragraph({ text: item.quantity.toString(), alignment: AlignmentType.CENTER })], margins: { top: 100, bottom: 100 } }),
+                  new TableCell({ children: [new Paragraph({ text: item.unit, alignment: AlignmentType.CENTER })], margins: { top: 100, bottom: 100 } }),
                 ],
               })),
             ],
           }),
+
           new Paragraph({ text: "", spacing: { before: 800 } }),
+
+          // Signatures
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: BorderStyle.NONE,
             rows: [
               new TableRow({
                 children: [
                   new TableCell({
-                    children: [new Paragraph({ text: "Receiver's Signature", alignment: AlignmentType.LEFT })],
-                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
+                    children: [
+                      new Paragraph({ text: "__________________________", alignment: AlignmentType.CENTER }),
+                      new Paragraph({ text: "Receiver's Signature", alignment: AlignmentType.CENTER }),
+                    ],
                   }),
                   new TableCell({
-                    children: [new Paragraph({ text: "Authorized Signatory", alignment: AlignmentType.RIGHT })],
-                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
+                    children: [
+                      new Paragraph({ text: "__________________________", alignment: AlignmentType.CENTER }),
+                      new Paragraph({ text: "Authorized Signatory", alignment: AlignmentType.CENTER }),
+                    ],
                   }),
                 ],
               }),
             ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 1200 } }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Professional Document Generated via Dabby", color: "808080", size: 18, italic: true }),
+            ],
+            alignment: AlignmentType.CENTER,
           }),
         ],
       }],

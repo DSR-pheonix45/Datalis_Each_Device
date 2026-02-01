@@ -69,42 +69,72 @@ export default function GSTInvoiceGenerator() {
     const total = subtotal + taxes.totalTax;
     const symbol = "₹";
 
-    doc.setFontSize(20);
-    doc.text("GST INVOICE", 105, 20, { align: "center" });
+    // Professional Colors
+    const primaryColor = [0, 71, 171]; // Deep Blue
+    const textColor = [33, 33, 33];
+    const lightGrey = [128, 128, 128];
 
+    // Header Bar
+    doc.setFillColor(...primaryColor);
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    // Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text("GST INVOICE", 105, 25, { align: "center" });
+
+    // Invoice Info (Top Right)
     doc.setFontSize(10);
-    doc.text(`Invoice #: ${invoiceData.invoiceNumber}`, 20, 40);
-    doc.text(`Date: ${invoiceData.date}`, 20, 47);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Invoice #: ${invoiceData.invoiceNumber}`, 190, 20, { align: "right" });
+    doc.text(`Date: ${invoiceData.date}`, 190, 27, { align: "right" });
 
-    // Supplier Details
-    let senderY = 67;
-    doc.text("Supplier Details:", 20, 60);
-    doc.text(invoiceData.senderName || "Business Name", 20, senderY);
-    senderY += 7;
+    // Reset Text Color
+    doc.setTextColor(...textColor);
+
+    // Layout Columns
+    let currentY = 55;
+    
+    // Left Column: Supplier
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("SUPPLIER DETAILS", 20, currentY);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    currentY += 7;
+    doc.text(invoiceData.senderName || "Business Name", 20, currentY);
+    currentY += 5;
     if (invoiceData.senderGstin) {
-      doc.text(`GSTIN: ${invoiceData.senderGstin}`, 20, senderY);
-      senderY += 7;
+      doc.text(`GSTIN: ${invoiceData.senderGstin}`, 20, currentY);
+      currentY += 5;
     }
     if (invoiceData.senderCin) {
-      doc.text(`CIN: ${invoiceData.senderCin}`, 20, senderY);
-      senderY += 7;
+      doc.text(`CIN: ${invoiceData.senderCin}`, 20, currentY);
+      currentY += 5;
     }
-    doc.text(invoiceData.senderAddress || "Address", 20, senderY);
+    doc.setTextColor(...lightGrey);
+    doc.text(invoiceData.senderAddress || "Address", 20, currentY, { maxWidth: 80 });
 
-    // Recipient Details
-    let clientY = 67;
-    doc.text("Recipient Details:", 120, 60);
-    doc.text(invoiceData.clientName || "Client Name", 120, clientY);
-    clientY += 7;
+    // Right Column: Recipient
+    let rightY = 55;
+    doc.setTextColor(...textColor);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("RECIPIENT DETAILS", 120, rightY);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    rightY += 7;
+    doc.text(invoiceData.clientName || "Client Name", 120, rightY);
+    rightY += 5;
     if (invoiceData.clientGstin) {
-      doc.text(`GSTIN: ${invoiceData.clientGstin}`, 120, clientY);
-      clientY += 7;
+      doc.text(`GSTIN: ${invoiceData.clientGstin}`, 120, rightY);
+      rightY += 5;
     }
-    if (invoiceData.clientCin) {
-      doc.text(`CIN: ${invoiceData.clientCin}`, 120, clientY);
-      clientY += 7;
-    }
-    doc.text(invoiceData.clientAddress || "Address", 120, clientY);
+    doc.setTextColor(...lightGrey);
+    doc.text(invoiceData.clientAddress || "Address", 120, rightY, { maxWidth: 80 });
+
+    const startTableY = Math.max(currentY, rightY) + 15;
 
     const tableData = invoiceData.items.map(item => [
       item.description,
@@ -115,27 +145,63 @@ export default function GSTInvoiceGenerator() {
     ]);
 
     autoTable(doc, {
-      startY: Math.max(senderY, clientY) + 10,
+      startY: startTableY,
       head: [["Description", "HSN/SAC", "Qty", "Rate", "Total"]],
       body: tableData,
-      theme: 'grid',
-      headStyles: { fillGray: [240, 240, 240], textColor: [0, 0, 0] }
+      theme: 'striped',
+      headStyles: {
+        fillColor: primaryColor,
+        textColor: [255, 255, 255],
+        fontSize: 10,
+        fontStyle: 'bold',
+        halign: 'left'
+      },
+      bodyStyles: {
+        fontSize: 9,
+        textColor: textColor
+      },
+      columnStyles: {
+        2: { halign: 'center' },
+        3: { halign: 'right' },
+        4: { halign: 'right' }
+      }
     });
 
-    const finalY = doc.lastAutoTable.finalY + 10;
-    doc.text(`Taxable Value: ${symbol}${subtotal.toFixed(2)}`, 140, finalY);
-    doc.text(`CGST (${invoiceData.cgst}%): ${symbol}${taxes.cgst.toFixed(2)}`, 140, finalY + 7);
-    doc.text(`SGST (${invoiceData.sgst}%): ${symbol}${taxes.sgst.toFixed(2)}`, 140, finalY + 14);
-    doc.setFontSize(14);
-    doc.text(`Grand Total: ${symbol}${total.toFixed(2)}`, 140, finalY + 24);
+    let finalY = doc.lastAutoTable.finalY + 15;
 
-    // Branding
+    // Summary Section
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    
+    // Taxable Value
+    doc.text("Taxable Value:", 140, finalY);
+    doc.text(`${symbol}${subtotal.toFixed(2)}`, 190, finalY, { align: "right" });
+    
+    // CGST
+    finalY += 7;
+    doc.text(`CGST (${invoiceData.cgst}%):`, 140, finalY);
+    doc.text(`${symbol}${taxes.cgst.toFixed(2)}`, 190, finalY, { align: "right" });
+    
+    // SGST
+    finalY += 7;
+    doc.text(`SGST (${invoiceData.sgst}%):`, 140, finalY);
+    doc.text(`${symbol}${taxes.sgst.toFixed(2)}`, 190, finalY, { align: "right" });
+    
+    // Total
+    finalY += 10;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...primaryColor);
+    doc.text("Grand Total:", 140, finalY);
+    doc.text(`${symbol}${total.toFixed(2)}`, 190, finalY, { align: "right" });
+
+    // Add Branding
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text("Created with Dabby", pageWidth - 45, pageHeight - 10);
-    doc.addImage("/dabby-logo.svg", "SVG", pageWidth - 15, pageHeight - 15, 10, 10);
+    doc.setFontSize(9);
+    doc.setTextColor(...lightGrey);
+    doc.setFont("helvetica", "italic");
+    doc.text("Created with Dabby - Your AI Business Assistant", pageWidth - 20, pageHeight - 10, { align: "right" });
 
     doc.save(`GST_Invoice_${invoiceData.invoiceNumber}.pdf`);
   };
@@ -144,112 +210,147 @@ export default function GSTInvoiceGenerator() {
     const subtotal = calculateSubtotal();
     const taxes = calculateTax();
     const total = subtotal + taxes.totalTax;
+    const symbol = "₹";
 
     const doc = new Document({
       sections: [{
         properties: {},
         children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "GST INVOICE",
-                bold: true,
-                size: 40,
-              }),
-            ],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 400 },
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: `Invoice #: ${invoiceData.invoiceNumber}`, bold: true }),
-            ],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: `Date: ${invoiceData.date}` }),
-            ],
-            spacing: { after: 400 },
-          }),
+          // Header with background color
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: BorderStyle.NONE,
             rows: [
               new TableRow({
                 children: [
                   new TableCell({
-                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    shading: { fill: "0047AB" },
+                    margins: { top: 400, bottom: 400, left: 400, right: 400 },
                     children: [
-                      new Paragraph({ children: [new TextRun({ text: "Supplier Details:", bold: true })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.senderName || "Business Name" })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.senderGstin ? `GSTIN: ${invoiceData.senderGstin}` : "" })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.senderCin ? `CIN: ${invoiceData.senderCin}` : "" })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.senderAddress || "Address" })] }),
+                      new Paragraph({
+                        children: [
+                          new TextRun({ text: "GST INVOICE", bold: true, size: 48, color: "FFFFFF" }),
+                        ],
+                        alignment: AlignmentType.CENTER,
+                      }),
                     ],
-                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
-                  }),
-                  new TableCell({
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    children: [
-                      new Paragraph({ children: [new TextRun({ text: "Recipient Details:", bold: true })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.clientName || "Client Name" })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.clientGstin ? `GSTIN: ${invoiceData.clientGstin}` : "" })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.clientCin ? `CIN: ${invoiceData.clientCin}` : "" })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.clientAddress || "Address" })] }),
-                    ],
-                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
                   }),
                 ],
               }),
             ],
           }),
-          new Paragraph({ text: "", spacing: { before: 400, after: 400 } }),
+
+          new Paragraph({ text: "", spacing: { before: 400 } }),
+
+          // Top Info
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: BorderStyle.NONE,
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({ children: [] }),
+                  new TableCell({
+                    children: [
+                      new Paragraph({
+                        children: [new TextRun({ text: `Invoice #: ${invoiceData.invoiceNumber}`, bold: true, size: 20 })],
+                        alignment: AlignmentType.RIGHT,
+                      }),
+                      new Paragraph({
+                        children: [new TextRun({ text: `Date: ${invoiceData.date}`, size: 18 })],
+                        alignment: AlignmentType.RIGHT,
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 600 } }),
+
+          // Supplier / Recipient Section
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: BorderStyle.NONE,
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: "SUPPLIER DETAILS", bold: true, size: 22, color: "0047AB" })] }),
+                      new Paragraph({ children: [new TextRun({ text: invoiceData.senderName || "Business Name", bold: true, size: 20 })] }),
+                      new Paragraph({ children: [new TextRun({ text: `GSTIN: ${invoiceData.senderGstin}`, size: 18 })] }),
+                      new Paragraph({ children: [new TextRun({ text: invoiceData.senderAddress || "Address", color: "808080", size: 18 })] }),
+                    ],
+                  }),
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: "RECIPIENT DETAILS", bold: true, size: 22, color: "0047AB" })] }),
+                      new Paragraph({ children: [new TextRun({ text: invoiceData.clientName || "Client Name", bold: true, size: 20 })] }),
+                      new Paragraph({ children: [new TextRun({ text: `GSTIN: ${invoiceData.clientGstin}`, size: 18 })] }),
+                      new Paragraph({ children: [new TextRun({ text: invoiceData.clientAddress || "Address", color: "808080", size: 18 })] }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 600 } }),
+
+          // Items Table
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [
               new TableRow({
+                tableHeader: true,
                 children: [
-                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Description", bold: true })] })] }),
-                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "HSN/SAC", bold: true })] })] }),
-                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Qty", bold: true })] })] }),
-                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Rate", bold: true })] })] }),
-                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Total", bold: true })] })] }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Description", bold: true, color: "FFFFFF" })] })] }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "HSN/SAC", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.CENTER }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Qty", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.CENTER }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Rate", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.RIGHT }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Total", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.RIGHT }),
                 ],
               }),
               ...invoiceData.items.map(item => new TableRow({
                 children: [
-                  new TableCell({ children: [new Paragraph({ text: item.description })] }),
-                  new TableCell({ children: [new Paragraph({ text: item.hsn || "-" })] }),
-                  new TableCell({ children: [new Paragraph({ text: item.quantity.toString() })] }),
-                  new TableCell({ children: [new Paragraph({ text: `₹${item.price.toFixed(2)}` })] }),
-                  new TableCell({ children: [new Paragraph({ text: `₹${(item.quantity * item.price).toFixed(2)}` })] }),
+                  new TableCell({ children: [new Paragraph(item.description)] }),
+                  new TableCell({ children: [new Paragraph(item.hsn || "-")], alignment: AlignmentType.CENTER }),
+                  new TableCell({ children: [new Paragraph(item.quantity.toString())], alignment: AlignmentType.CENTER }),
+                  new TableCell({ children: [new Paragraph(`${symbol}${item.price.toFixed(2)}`)], alignment: AlignmentType.RIGHT }),
+                  new TableCell({ children: [new Paragraph(`${symbol}${(item.quantity * item.price).toFixed(2)}`)], alignment: AlignmentType.RIGHT }),
                 ],
               })),
             ],
           }),
-          new Paragraph({ text: "", spacing: { before: 400 } }),
+
+          new Paragraph({ text: "", spacing: { before: 600 } }),
+
+          // Totals
           new Paragraph({
-            children: [new TextRun({ text: `Taxable Value: ₹${subtotal.toFixed(2)}` })],
+            children: [new TextRun({ text: `Taxable Value: ${symbol}${subtotal.toFixed(2)}`, size: 20 })],
             alignment: AlignmentType.RIGHT,
           }),
           new Paragraph({
-            children: [new TextRun({ text: `CGST (${invoiceData.cgst}%): ₹${taxes.cgst.toFixed(2)}` })],
+            children: [new TextRun({ text: `CGST (${invoiceData.cgst}%): ${symbol}${taxes.cgst.toFixed(2)}`, size: 20 })],
             alignment: AlignmentType.RIGHT,
           }),
           new Paragraph({
-            children: [new TextRun({ text: `SGST (${invoiceData.sgst}%): ₹${taxes.sgst.toFixed(2)}` })],
+            children: [new TextRun({ text: `SGST (${invoiceData.sgst}%): ${symbol}${taxes.sgst.toFixed(2)}`, size: 20 })],
             alignment: AlignmentType.RIGHT,
           }),
           new Paragraph({
-            children: [new TextRun({ text: `Grand Total: ₹${total.toFixed(2)}`, bold: true, size: 28 })],
+            children: [new TextRun({ text: `Grand Total: ${symbol}${total.toFixed(2)}`, bold: true, size: 24, color: "0047AB" })],
             alignment: AlignmentType.RIGHT,
-            spacing: { before: 200 },
           }),
+          
+          new Paragraph({ text: "", spacing: { before: 800 } }),
           new Paragraph({
-            children: [
-              new TextRun({ text: "Created with Dabby", color: "999999", size: 16 }),
-            ],
+            children: [new TextRun({ text: "Created with Dabby - Your AI Business Assistant", italic: true, color: "808080", size: 18 })],
             alignment: AlignmentType.RIGHT,
-            spacing: { before: 400 },
           }),
         ],
       }],

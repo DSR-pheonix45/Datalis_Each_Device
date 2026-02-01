@@ -72,45 +72,76 @@ export default function QuotationGenerator() {
     const tax = calculateTax();
     const total = calculateTotal();
     const symbol = "₹";
+    const primaryColor = [0, 71, 171]; // Royal Blue
 
-    doc.setFontSize(20);
-    doc.text("QUOTATION", 105, 20, { align: "center" });
+    // Header Bar
+    doc.setFillColor(...primaryColor);
+    doc.rect(0, 0, 210, 40, 'F');
 
+    // Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text("QUOTATION", 105, 25, { align: "center" });
+
+    // Document Info
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
-    doc.text(`Quotation #: ${quotationData.quotationNumber}`, 20, 40);
-    doc.text(`Date: ${quotationData.date}`, 20, 47);
-    if (quotationData.expiryDate) doc.text(`Valid Until: ${quotationData.expiryDate}`, 20, 54);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Quotation #:`, 20, 55);
+    doc.setFont("helvetica", "normal");
+    doc.text(quotationData.quotationNumber, 45, 55);
 
-    // Sender Details
-    doc.setFontSize(11);
-    doc.text("From:", 20, 75);
-    doc.setFontSize(10);
-    let currentY = 82;
-    doc.text(quotationData.senderName || "Your Name", 20, currentY);
-    currentY += 7;
-    doc.text(quotationData.senderEmail || "your@email.com", 20, currentY);
-    currentY += 7;
-    
-    if (quotationData.senderGstin) { doc.text(`GSTIN: ${quotationData.senderGstin}`, 20, currentY); currentY += 7; }
-    if (quotationData.senderCin) { doc.text(`CIN: ${quotationData.senderCin}`, 20, currentY); currentY += 7; }
-    
-    doc.text(quotationData.senderAddress || "Your Address", 20, currentY);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Date:`, 20, 62);
+    doc.setFont("helvetica", "normal");
+    doc.text(quotationData.date, 45, 62);
 
-    // Client Details
-    doc.setFontSize(11);
-    doc.text("For:", 120, 75);
-    doc.setFontSize(10);
-    currentY = 82;
-    doc.text(quotationData.clientName || "Client Name", 120, currentY);
-    currentY += 7;
-    doc.text(quotationData.clientEmail || "client@email.com", 120, currentY);
-    currentY += 7;
-    
-    if (quotationData.clientGstin) {
-      doc.text(`GSTIN: ${quotationData.clientGstin}`, 120, currentY); currentY += 7;
+    if (quotationData.expiryDate) {
+      doc.setFont("helvetica", "bold");
+      doc.text(`Valid Until:`, 20, 69);
+      doc.setFont("helvetica", "normal");
+      doc.text(quotationData.expiryDate, 45, 69);
     }
+
+    // Section Headers
+    doc.setFillColor(240, 240, 240);
+    doc.rect(20, 80, 80, 8, 'F');
+    doc.rect(110, 80, 80, 8, 'F');
     
-    doc.text(quotationData.clientAddress || "Client Address", 120, currentY);
+    doc.setFont("helvetica", "bold");
+    doc.text("FROM", 25, 86);
+    doc.text("FOR CLIENT", 115, 86);
+
+    // Details
+    doc.setFont("helvetica", "normal");
+    let senderY = 95;
+    doc.text(quotationData.senderName || "Your Name", 20, senderY);
+    senderY += 6;
+    doc.text(quotationData.senderEmail || "your@email.com", 20, senderY);
+    senderY += 6;
+    if (quotationData.senderGstin) {
+      doc.text(`GSTIN: ${quotationData.senderGstin}`, 20, senderY);
+      senderY += 6;
+    }
+    const senderAddrLines = doc.splitTextToSize(quotationData.senderAddress || "Your Address", 80);
+    doc.text(senderAddrLines, 20, senderY);
+    senderY += (senderAddrLines.length * 6);
+
+    let clientY = 95;
+    doc.text(quotationData.clientName || "Client Name", 110, clientY);
+    clientY += 6;
+    doc.text(quotationData.clientEmail || "client@email.com", 110, clientY);
+    clientY += 6;
+    if (quotationData.clientGstin) {
+      doc.text(`GSTIN: ${quotationData.clientGstin}`, 110, clientY);
+      clientY += 6;
+    }
+    const clientAddrLines = doc.splitTextToSize(quotationData.clientAddress || "Client Address", 80);
+    doc.text(clientAddrLines, 110, clientY);
+    clientY += (clientAddrLines.length * 6);
+
+    const tableStartY = Math.max(senderY, clientY) + 10;
 
     const tableData = quotationData.items.map(item => [
       item.description,
@@ -120,29 +151,58 @@ export default function QuotationGenerator() {
     ]);
 
     autoTable(doc, {
-      startY: currentY + 15,
+      startY: tableStartY,
       head: [["Description", "Quantity", "Price", "Total"]],
       body: tableData,
+      theme: 'striped',
+      headStyles: { fillStyle: 'F', fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 10, cellPadding: 5 },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 25, halign: 'center' },
+        2: { cellWidth: 35, halign: 'right' },
+        3: { cellWidth: 35, halign: 'right' }
+      }
     });
 
-    const finalY = doc.lastAutoTable.finalY + 10;
-    doc.text(`Subtotal: ${symbol}${subtotal.toFixed(2)}`, 140, finalY);
-    doc.text(`GST (${quotationData.taxRate}%): ${symbol}${tax.toFixed(2)}`, 140, finalY + 7);
-    doc.setFontSize(14);
-    doc.text(`Total: ${symbol}${total.toFixed(2)}`, 140, finalY + 16);
+    let finalY = doc.lastAutoTable.finalY + 10;
+    
+    // Totals Section
+    doc.setFont("helvetica", "normal");
+    doc.text("Subtotal:", 140, finalY);
+    doc.text(`${symbol}${subtotal.toFixed(2)}`, 190, finalY, { align: "right" });
+    
+    finalY += 7;
+    doc.text(`GST (${quotationData.taxRate}%):`, 140, finalY);
+    doc.text(`${symbol}${tax.toFixed(2)}`, 190, finalY, { align: "right" });
+    
+    finalY += 10;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setFillColor(...primaryColor);
+    doc.rect(135, finalY - 6, 60, 10, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.text("Total Amount:", 140, finalY);
+    doc.text(`${symbol}${total.toFixed(2)}`, 190, finalY, { align: "right" });
 
     if (quotationData.notes) {
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(10);
-      doc.text("Notes:", 20, finalY + 30);
-      doc.text(quotationData.notes, 20, finalY + 37);
+      doc.setFont("helvetica", "bold");
+      finalY += 20;
+      doc.text("Notes:", 20, finalY);
+      doc.setFont("helvetica", "normal");
+      const noteLines = doc.splitTextToSize(quotationData.notes, 170);
+      doc.text(noteLines, 20, finalY + 7);
+      finalY += (noteLines.length * 6) + 10;
     }
 
-    // Add Branding
+    // Footer Branding
     const pageHeight = doc.internal.pageSize.height;
     const pageWidth = doc.internal.pageSize.width;
-    doc.setFontSize(10);
-    doc.setTextColor(128, 128, 128);
-    doc.text("Created with Dabby", pageWidth - 50, pageHeight - 10);
+    doc.setFontSize(9);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Professional Document Generated via Dabby", pageWidth / 2, pageHeight - 10, { align: "center" });
 
     doc.save(`Quotation_${quotationData.quotationNumber}.pdf`);
   };
@@ -156,57 +216,23 @@ export default function QuotationGenerator() {
       sections: [{
         properties: {},
         children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "QUOTATION",
-                bold: true,
-                size: 40,
-              }),
-            ],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 400 },
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: `Quotation #: ${quotationData.quotationNumber}`, bold: true }),
-              new TextRun({ text: `\tDate: ${quotationData.date}`, bold: true }),
-            ],
-            spacing: { after: 200 },
-          }),
-          ...(quotationData.expiryDate ? [
-            new Paragraph({
-              children: [new TextRun({ text: `Valid Until: ${quotationData.expiryDate}`, bold: true })],
-              spacing: { after: 200 },
-            })
-          ] : []),
-
+          // Header Bar replacement in Word
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: BorderStyle.NONE,
             rows: [
               new TableRow({
                 children: [
                   new TableCell({
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
+                    shading: { fill: "0047AB" },
+                    margins: { top: 400, bottom: 400, left: 400, right: 400 },
                     children: [
-                      new Paragraph({ children: [new TextRun({ text: "From:", bold: true })] }),
-                      new Paragraph({ text: quotationData.senderName || "Your Name" }),
-                      new Paragraph({ text: quotationData.senderEmail || "your@email.com" }),
-                      ...(quotationData.senderGstin ? [new Paragraph({ text: `GSTIN: ${quotationData.senderGstin}` })] : []),
-                      ...(quotationData.senderCin ? [new Paragraph({ text: `CIN: ${quotationData.senderCin}` })] : []),
-                      new Paragraph({ text: quotationData.senderAddress || "Your Address" }),
-                    ],
-                  }),
-                  new TableCell({
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
-                    children: [
-                      new Paragraph({ children: [new TextRun({ text: "For:", bold: true })] }),
-                      new Paragraph({ text: quotationData.clientName || "Client Name" }),
-                      new Paragraph({ text: quotationData.clientEmail || "client@email.com" }),
-                      ...(quotationData.clientGstin ? [new Paragraph({ text: `GSTIN: ${quotationData.clientGstin}` })] : []),
-                      new Paragraph({ text: quotationData.clientAddress || "Client Address" }),
+                      new Paragraph({
+                        children: [
+                          new TextRun({ text: "QUOTATION", bold: true, size: 48, color: "FFFFFF" }),
+                        ],
+                        alignment: AlignmentType.CENTER,
+                      }),
                     ],
                   }),
                 ],
@@ -216,23 +242,92 @@ export default function QuotationGenerator() {
 
           new Paragraph({ text: "", spacing: { before: 400 } }),
 
+          // Document Info
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: BorderStyle.NONE,
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: "Quotation #: ", bold: true }), new TextRun({ text: quotationData.quotationNumber })] }),
+                      new Paragraph({ children: [new TextRun({ text: "Date: ", bold: true }), new TextRun({ text: quotationData.date })] }),
+                      ...(quotationData.expiryDate ? [new Paragraph({ children: [new TextRun({ text: "Valid Until: ", bold: true }), new TextRun({ text: quotationData.expiryDate })] })] : []),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 400 } }),
+
+          // From / For Client
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [
               new TableRow({
                 children: [
-                  new TableCell({ children: [new Paragraph({ text: "Description", bold: true })] }),
-                  new TableCell({ children: [new Paragraph({ text: "Quantity", bold: true })] }),
-                  new TableCell({ children: [new Paragraph({ text: "Price (₹)", bold: true })] }),
-                  new TableCell({ children: [new Paragraph({ text: "Total (₹)", bold: true })] }),
+                  new TableCell({
+                    shading: { fill: "F2F2F2" },
+                    children: [new Paragraph({ children: [new TextRun({ text: "FROM", bold: true, size: 20 })] })],
+                    margins: { left: 100, top: 100, bottom: 100 },
+                  }),
+                  new TableCell({
+                    shading: { fill: "F2F2F2" },
+                    children: [new Paragraph({ children: [new TextRun({ text: "FOR CLIENT", bold: true, size: 20 })] })],
+                    margins: { left: 100, top: 100, bottom: 100 },
+                  }),
+                ],
+              }),
+              new TableRow({
+                children: [
+                  new TableCell({
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: quotationData.senderName || "Your Name", bold: true })] }),
+                      new Paragraph({ text: quotationData.senderEmail || "your@email.com" }),
+                      ...(quotationData.senderGstin ? [new Paragraph({ text: `GSTIN: ${quotationData.senderGstin}` })] : []),
+                      new Paragraph({ text: quotationData.senderAddress || "Your Address" }),
+                    ],
+                    borders: BorderStyle.NONE,
+                    margins: { top: 200, bottom: 200, left: 100 },
+                  }),
+                  new TableCell({
+                    children: [
+                      new Paragraph({ children: [new TextRun({ text: quotationData.clientName || "Client Name", bold: true })] }),
+                      new Paragraph({ text: quotationData.clientEmail || "client@email.com" }),
+                      ...(quotationData.clientGstin ? [new Paragraph({ text: `GSTIN: ${quotationData.clientGstin}` })] : []),
+                      new Paragraph({ text: quotationData.clientAddress || "Client Address" }),
+                    ],
+                    borders: BorderStyle.NONE,
+                    margins: { top: 200, bottom: 200, left: 100 },
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          new Paragraph({ text: "", spacing: { before: 400, after: 400 } }),
+
+          // Items Table
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Description", bold: true, color: "FFFFFF" })] })] }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Quantity", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.CENTER }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Price (₹)", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.RIGHT }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Total (₹)", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.RIGHT }),
                 ],
               }),
               ...quotationData.items.map(item => new TableRow({
                 children: [
-                  new TableCell({ children: [new Paragraph({ text: item.description })] }),
-                  new TableCell({ children: [new Paragraph({ text: item.quantity.toString() })] }),
-                  new TableCell({ children: [new Paragraph({ text: item.price.toFixed(2) })] }),
-                  new TableCell({ children: [new Paragraph({ text: (item.quantity * item.price).toFixed(2) })] }),
+                  new TableCell({ children: [new Paragraph({ text: item.description })], margins: { left: 100, top: 100, bottom: 100 } }),
+                  new TableCell({ children: [new Paragraph({ text: item.quantity.toString(), alignment: AlignmentType.CENTER })], margins: { top: 100, bottom: 100 } }),
+                  new TableCell({ children: [new Paragraph({ text: item.price.toFixed(2), alignment: AlignmentType.RIGHT })], margins: { top: 100, bottom: 100, right: 100 } }),
+                  new TableCell({ children: [new Paragraph({ text: (item.quantity * item.price).toFixed(2), alignment: AlignmentType.RIGHT })], margins: { top: 100, bottom: 100, right: 100 } }),
                 ],
               })),
             ],
@@ -240,6 +335,7 @@ export default function QuotationGenerator() {
 
           new Paragraph({ text: "", spacing: { before: 400 } }),
 
+          // Totals Section
           new Paragraph({
             children: [
               new TextRun({ text: `Subtotal: ₹${subtotal.toFixed(2)}` }),
@@ -254,7 +350,7 @@ export default function QuotationGenerator() {
           }),
           new Paragraph({
             children: [
-              new TextRun({ text: `Total Amount: ₹${total.toFixed(2)}`, bold: true, size: 28 }),
+              new TextRun({ text: `Total Amount: ₹${total.toFixed(2)}`, bold: true, size: 28, color: "0047AB" }),
             ],
             alignment: AlignmentType.RIGHT,
             spacing: { before: 200 },
@@ -266,12 +362,12 @@ export default function QuotationGenerator() {
             new Paragraph({ text: quotationData.notes }),
           ] : []),
 
-          new Paragraph({ text: "", spacing: { before: 400 } }),
+          new Paragraph({ text: "", spacing: { before: 1200 } }),
           new Paragraph({
             children: [
-              new TextRun({ text: "Created with Dabby", color: "808080", size: 20 }),
+              new TextRun({ text: "Professional Document Generated via Dabby", color: "808080", size: 18, italic: true }),
             ],
-            alignment: AlignmentType.RIGHT,
+            alignment: AlignmentType.CENTER,
           }),
         ],
       }],
