@@ -10,6 +10,13 @@ import ProtectedRoute from "./Auth/ProtectedRoute";
 // Lazy Load Landing Page Components
 const Home = lazy(() => import("./pages/Home"));
 const Product = lazy(() => import("./pages/Product"));
+const Templates = lazy(() => import("./pages/Templates"));
+const InvoiceGenerator = lazy(() => import("./pages/templates/InvoiceGenerator"));
+const PurchaseOrderGenerator = lazy(() => import("./pages/templates/PurchaseOrderGenerator"));
+const QuotationGenerator = lazy(() => import("./pages/templates/QuotationGenerator"));
+const GSTInvoiceGenerator = lazy(() => import("./pages/templates/GSTInvoiceGenerator"));
+const DeliveryChallanGenerator = lazy(() => import("./pages/templates/DeliveryChallanGenerator"));
+const ProformaInvoiceGenerator = lazy(() => import("./pages/templates/ProformaInvoiceGenerator"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const About = lazy(() => import("./pages/About"));
 const Features = lazy(() => import("./pages/Features"));
@@ -78,6 +85,13 @@ function App() {
                 <Route path="/signup" element={<Maintenance />} />
                 <Route path="/maintenance" element={<Maintenance />} />
                 <Route path="/product" element={<Product />} />
+                <Route path="/templates" element={<Templates />} />
+                <Route path="/templates/invoice" element={<InvoiceGenerator />} />
+                <Route path="/templates/purchase-order" element={<PurchaseOrderGenerator />} />
+                <Route path="/templates/quotation" element={<QuotationGenerator />} />
+                <Route path="/templates/gst-invoice" element={<GSTInvoiceGenerator />} />
+                <Route path="/templates/delivery-challan" element={<DeliveryChallanGenerator />} />
+                <Route path="/templates/proforma-invoice" element={<ProformaInvoiceGenerator />} />
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/features" element={<Features />} />
