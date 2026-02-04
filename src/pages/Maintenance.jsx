@@ -31,7 +31,7 @@ const Maintenance = () => {
             <span className="font-semibold uppercase tracking-wider text-sm">Estimated Return</span>
           </div>
           <div className="text-2xl font-mono font-bold text-white">
-            02 - 02 - 2026
+            10 - 02 - 2026
           </div>
           <p className="text-xs text-gray-500">
             Thank you for your patience while we improve Datalis.
