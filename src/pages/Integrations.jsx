@@ -12,7 +12,7 @@ const connectors = [
   },
   {
     name: "Stripe",
-    description: "Stream payouts, disputes, and subscription health directly into dashboards.",
+    description: "Stream payouts, disputes, and subscription health directly into your analysis.",
   },
   {
     name: "Google Sheets",

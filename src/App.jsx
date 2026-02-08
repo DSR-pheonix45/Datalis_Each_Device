@@ -3,9 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from "react-
 import Maintenance from "./pages/Maintenance";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
-import { WorkbenchProvider } from "./context/WorkbenchContext.jsx";
 import ScrollToTop from "./components/ScrollToTop";
 import ProtectedRoute from "./Auth/ProtectedRoute";
+
+import ErrorBoundary from "./components/common/ErrorBoundary";
 
 // Lazy Load Landing Page Components
 const Home = lazy(() => import("./pages/Home"));
@@ -17,7 +18,6 @@ const QuotationGenerator = lazy(() => import("./pages/templates/QuotationGenerat
 const GSTInvoiceGenerator = lazy(() => import("./pages/templates/GSTInvoiceGenerator"));
 const DeliveryChallanGenerator = lazy(() => import("./pages/templates/DeliveryChallanGenerator"));
 const ProformaInvoiceGenerator = lazy(() => import("./pages/templates/ProformaInvoiceGenerator"));
-const Pricing = lazy(() => import("./pages/Pricing"));
 const About = lazy(() => import("./pages/About"));
 const Features = lazy(() => import("./pages/Features"));
 const Documentation = lazy(() => import("./pages/Documentation"));
@@ -35,16 +35,11 @@ const Footer = lazy(() => import("./components/landing/Footer"));
 // Authentication Components
 const Login = lazy(() => import("./Auth/Login"));
 const Signup = lazy(() => import("./Auth/Signup"));
-const ForgotPassword = lazy(() => import("./Auth/ForgotPassword"));
-const ResetPasswordConfirm = lazy(() => import("./Auth/ResetPasswordConfirm"));
 const OAuthCallback = lazy(() => import("./Auth/OAuthCallback"));
 
 // Protected Components
 const MainApp = lazy(() => import("./components/MainApp"));
 const Settings = lazy(() => import("./components/Settings/Settings"));
-const WorkbenchesPage = lazy(() => import("./pages/workbenches/WorkbenchesPage"));
-const CompanyPage = lazy(() => import("./pages/CompanyPage"));
-const JoinCompany = lazy(() => import("./pages/JoinCompany"));
 
 // Loading Component
 const PageLoader = () => (
@@ -70,6 +65,12 @@ function LandingLayout({ children }) {
   );
 }
 
+const isLocalhost = true; // Forced to true temporarily
+// const isLocalhost = 
+//   window.location.hostname === 'localhost' || 
+//   window.location.hostname === '127.0.0.1' || 
+//   window.location.hostname === '';
+
 function App() {
   return (
     <Router>
@@ -81,9 +82,9 @@ function App() {
               {/* Public Landing Pages with Persistent Layout */}
               <Route element={<LandingLayout><Outlet /></LandingLayout>}>
                 <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Maintenance />} />
-                <Route path="/signup" element={<Maintenance />} />
-                <Route path="/maintenance" element={<Maintenance />} />
+                <Route path="/login" element={isLocalhost ? <Login /> : <Maintenance />} />
+                <Route path="/signup" element={isLocalhost ? <Signup /> : <Maintenance />} />
+                <Route path="/maintenance" element={isLocalhost ? <Navigate to="/" replace /> : <Maintenance />} />
                 <Route path="/product" element={<Product />} />
                 <Route path="/templates" element={<Templates />} />
                 <Route path="/templates/invoice" element={<InvoiceGenerator />} />
@@ -92,7 +93,6 @@ function App() {
                 <Route path="/templates/gst-invoice" element={<GSTInvoiceGenerator />} />
                 <Route path="/templates/delivery-challan" element={<DeliveryChallanGenerator />} />
                 <Route path="/templates/proforma-invoice" element={<ProformaInvoiceGenerator />} />
-                <Route path="/pricing" element={<Pricing />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/features" element={<Features />} />
                 <Route path="/docs" element={<Documentation />} />
@@ -105,21 +105,25 @@ function App() {
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/payment-coming-soon" element={<PaymentComingSoon />} />
               </Route>
-              <Route path="/join-company" element={<Maintenance />} />
-
-              {/* Other Auth Routes */}
-              <Route path="/reset-password" element={<Maintenance />} />
-              <Route
-                path="/reset-password-confirm"
-                element={<Maintenance />}
-              />
-              <Route path="/oauth/callback" element={<Maintenance />} />
-              <Route path="/auth/callback" element={<Maintenance />} />
+              <Route path="/oauth/callback" element={isLocalhost ? <OAuthCallback /> : <Maintenance />} />
+              <Route path="/auth/callback" element={isLocalhost ? <OAuthCallback /> : <Maintenance />} />
 
               {/* Protected Dashboard Routes */}
               <Route
                 path="/dashboard/*"
-                element={<Maintenance />}
+                element={
+                  isLocalhost ? (
+                    <ProtectedRoute>
+                      <Suspense fallback={<PageLoader />}>
+                        <ErrorBoundary>
+                          <MainApp />
+                        </ErrorBoundary>
+                      </Suspense>
+                    </ProtectedRoute>
+                  ) : (
+                    <Maintenance />
+                  )
+                }
               />
 
               <Route path="*" element={<Navigate to="/" replace />} />

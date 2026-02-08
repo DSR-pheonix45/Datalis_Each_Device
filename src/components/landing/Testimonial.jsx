@@ -5,7 +5,7 @@ import { useTheme } from "../../context/ThemeContext";
 const testimonials = [
   {
     id: 1,
-    quote: "Datalis reduced our monthly reporting time from 40 hours to just 4 hours. The AI insights have completely transformed how we approach financial analysis.",
+    quote: "Datalis has completely transformed how we approach financial analysis. The AI insights are incredibly accurate and professional.",
     author: "Aditi Rao",
     role: "CFO",
     company: "Vistara Dynamics",
@@ -13,23 +13,15 @@ const testimonials = [
   },
   {
     id: 2,
-    quote: "The ability to ask natural language questions to our financial data has been a game-changer. No more waiting for the data team to write SQL queries.",
+    quote: "The ability to ask natural language questions to our financial data has been a game-changer. No more waiting for manual data processing.",
     author: "Rahul Deshmukh",
     role: "Finance Head",
     company: "Indus Logistics",
     initials: "RD"
   },
   {
-    id: 3,
-    quote: "We've cut our data preparation time by 80%. Datalis automatically detects our columns and calculates all the KPIs we need.",
-    author: "Priyanka Nair",
-    role: "Senior Analyst",
-    company: "Zenith Retail",
-    initials: "PN"
-  },
-  {
     id: 4,
-    quote: "The PDF report generation is incredible. We can now create board-ready presentations in minutes instead of days.",
+    quote: "The document analysis is incredible. We can now get deep insights from our financial statements in seconds.",
     author: "Vikram Singh",
     role: "VP Finance",
     company: "Apex Healthcare",
@@ -44,24 +36,8 @@ const testimonials = [
     initials: "SG"
   },
   {
-    id: 6,
-    quote: "Real-time KPI monitoring has allowed us to make faster, data-driven decisions. Our forecast accuracy has improved by 35%.",
-    author: "Amit Patel",
-    role: "CFO",
-    company: "Maruti Enterprises",
-    initials: "AP"
-  },
-  {
-    id: 7,
-    quote: "The collaborative workbench feature is perfect for our distributed finance team. Everyone can access the same insights in real-time.",
-    author: "Deepika Reddy",
-    role: "Finance Lead",
-    company: "Sudarshan Corp",
-    initials: "DR"
-  },
-  {
     id: 8,
-    quote: "We love how easy it is to connect our PostgreSQL database. No data duplication, just direct, real-time insights.",
+    quote: "We love how easy it is to manage our company data. Direct, real-time insights that help us make better decisions.",
     author: "Manish Pandey",
     role: "Director",
     company: "Trident Solutions",

@@ -8,9 +8,6 @@ const ThinkingIndicator = ({ context = "processing" }) => {
         if (context.includes("upload")) {
             return ["Reading files...", "Extracting data...", "Preparing analysis..."];
         }
-        if (context.includes("workbench")) {
-            return ["Scanning workbench...", "Correlating files...", "Generating insights..."];
-        }
         if (context.includes("web")) {
             return ["Searching web...", "Reading sources...", "Synthesizing answer..."];
         }

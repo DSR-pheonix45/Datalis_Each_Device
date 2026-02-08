@@ -17,6 +17,7 @@ import {
   BsRocket,
   BsFileEarmark,
   BsSearch,
+  BsCheck2Square,
 } from "react-icons/bs";
 
 // Desktop Tour step configurations (with spotlight)
@@ -28,12 +29,12 @@ const desktopTourSteps = [
     title: "Welcome to Dabby",
     subtitle: "Your AI Financial Consultant",
     description:
-      "Dabby helps you analyze financial data, generate reports, track KPIs, and get actionable insights for your business.",
+      "Dabby helps you analyze financial data and get actionable insights for your business.",
     icon: BsRocket,
     features: [
       { icon: BsChat, text: "AI-powered chat assistance" },
-      { icon: BsBarChart, text: "Visual KPI dashboards" },
-      { icon: BsFileEarmark, text: "Automated report generation" },
+      { icon: BsFileEarmark, text: "Deep document analysis" },
+      { icon: BsLightning, text: "Instant data insights" },
     ],
   },
   {
@@ -44,45 +45,9 @@ const desktopTourSteps = [
     position: "right",
     title: "Navigation Sidebar",
     description:
-      "Your command center. Access companies, workbenches, chat history, and all key features from here.",
+      "Your command center. Access chat history and all key features from here.",
     icon: BsSearch,
     tip: "Use Ctrl+K to quickly search through your chats",
-  },
-  {
-    id: "companies",
-    type: "spotlight",
-    route: "/dashboard",
-    target: '[data-tour="company-button"]',
-    position: "right",
-    title: "Company Management",
-    description:
-      "Click here to add and manage your companies. Each company can have its own workbenches and data. Perfect for accountants and consultants.",
-    icon: BsBuilding,
-    tip: "Add your first company to get started with organized financial tracking",
-  },
-  {
-    id: "visuals",
-    type: "spotlight",
-    route: "/dashboard",
-    target: '[data-tour="visuals-button"]',
-    position: "right",
-    title: "Visual Dashboard",
-    description:
-      "Create beautiful KPI dashboards to monitor key metrics. Build interactive charts and graphs from your financial data.",
-    icon: BsBarChart,
-    tip: "Track revenue, expenses, and custom KPIs with real-time visualizations",
-  },
-  {
-    id: "workbenches",
-    type: "spotlight",
-    route: "/dashboard",
-    target: '[data-tour="workbench-button"]',
-    position: "right",
-    title: "Workbenches",
-    description:
-      "Organize your financial documents by project, client, or time period. Upload Excel, CSV, or PDF files for AI analysis.",
-    icon: BsBriefcase,
-    tip: "Create workbenches to keep your files organized and easily searchable",
   },
   {
     id: "chat",
@@ -108,7 +73,7 @@ const desktopTourSteps = [
     features: [
       { icon: BsGear, text: "API key configuration" },
       { icon: BsStars, text: "AI model preferences" },
-      { icon: BsLightning, text: "Credit & usage tracking" },
+      { icon: BsLightning, text: "Account management" },
     ],
   },
   {
@@ -118,7 +83,7 @@ const desktopTourSteps = [
     title: "You're Ready!",
     subtitle: "Start Your Journey",
     description:
-      "Begin by adding a company or creating a workbench to upload files. Dabby is here to help with any financial questions!",
+      "Begin by adding a company or uploading files to analyze. Dabby is here to help with any financial questions!",
     icon: BsCheck2,
     isComplete: true,
   },
@@ -133,12 +98,12 @@ const mobileTourSteps = [
     title: "Welcome to Dabby",
     subtitle: "Your AI Financial Consultant",
     description:
-      "Dabby helps you analyze financial data, generate reports, and get actionable insights for your business.",
+      "Dabby helps you analyze financial data and get actionable insights for your business.",
     icon: BsRocket,
     features: [
       { icon: BsChat, text: "AI-powered chat" },
-      { icon: BsBarChart, text: "KPI dashboards" },
-      { icon: BsFileEarmark, text: "Report generation" },
+      { icon: BsFileEarmark, text: "Deep document analysis" },
+      { icon: BsLightning, text: "Instant data insights" },
     ],
   },
   {
@@ -148,12 +113,11 @@ const mobileTourSteps = [
     title: "Navigate with Menu",
     subtitle: "Tap the ☰ icon",
     description:
-      "Use the menu button in the top-left corner to access the sidebar. From there you can navigate to Companies, Workbenches, Visuals, and Settings.",
+      "Use the menu button in the top-left corner to access the sidebar. From there you can navigate to Companies and Settings.",
     icon: BsSearch,
     features: [
       { icon: BsBuilding, text: "Manage companies" },
-      { icon: BsBriefcase, text: "Organize workbenches" },
-      { icon: BsBarChart, text: "View visual dashboards" },
+      { icon: BsGear, text: "Configure settings" },
     ],
   },
   {

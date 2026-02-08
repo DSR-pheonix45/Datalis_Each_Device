@@ -41,12 +41,12 @@ const domains = [
             </svg>
         ),
         title: "Financial Analytics",
-        description: "Advanced AI-powered analysis of financial data, forecasting, and risk assessment for informed decision-making.",
+        description: "Advanced AI-powered analysis of financial data, forecasting, and trend detection for informed decision-making.",
         features: [
-            "Real-time financial monitoring",
-            "Predictive analytics",
-            "Risk assessment models",
-            "Performance tracking"
+            "Real-time financial analysis",
+            "Predictive trends",
+            "Pattern recognition",
+            "Insight generation"
         ]
     },
     {
@@ -56,9 +56,9 @@ const domains = [
             </svg>
         ),
         title: "Business Intelligence",
-        description: "Transform raw business data into actionable insights with our AI-driven BI tools and smart visualizations.",
+        description: "Transform raw business data into actionable insights with our AI-driven analysis tools and contextual intelligence.",
         features: [
-            "Data visualization",
+            "Document analysis",
             "Market trend analysis",
             "Competitive insights",
             "Growth opportunities"
@@ -77,7 +77,7 @@ const domains = [
             "Workflow automation",
             "Task optimization",
             "Resource management",
-            "Efficiency tracking"
+            "AI-driven suggestions"
         ]
     }
 ];

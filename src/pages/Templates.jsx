@@ -40,7 +40,7 @@ const templates = [
   {
     id: "gst-invoice",
     title: "GST Invoice Generator",
-    description: "GST-compliant invoices, ensuring accuracy and tax regulation compliance.",
+    description: "Generate GST-ready invoices with accurate tax calculations and professional formatting.",
     icon: <Receipt className="w-10 h-10" />,
     color: "bg-orange-500",
     link: "/templates/gst-invoice"

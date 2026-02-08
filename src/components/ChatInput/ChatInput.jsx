@@ -10,14 +10,11 @@ import {
   BsPaperclip,
   BsSend,
   BsGlobe2,
-  BsBriefcase,
   BsX,
   BsFileEarmark,
 } from "react-icons/bs";
 import FileSuggestions from "./FileSuggestions";
 import VoiceInput from "../VoiceInput";
-import AttachWorkbenchModal from "./AttachWorkbenchModal";
-import { useWorkbenchContext } from "../../hooks/useWorkbenchContext";
 
 const PLACEHOLDERS = [
   "Ask about profit margins...",
@@ -35,7 +32,6 @@ const ChatInput = forwardRef(function ChatInput(
     initialMessage = "",
     webSearchEnabled = false,
     uploadedFiles = [],
-    onWorkbenchClick,
   },
   ref
 ) {
@@ -46,9 +42,6 @@ const ChatInput = forwardRef(function ChatInput(
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isWorkbenchModalOpen, setIsWorkbenchModalOpen] = useState(false);
-  const { context: workbenchContext, detachWorkbench } = useWorkbenchContext();
-  const [attachedWorkbench, setAttachedWorkbench] = useState(workbenchContext?.workbench || null);
 
   // Rotating Placeholder Logic
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
@@ -64,19 +57,6 @@ const ChatInput = forwardRef(function ChatInput(
   useEffect(() => {
     setCurrentPlaceholder(PLACEHOLDERS[placeholderIndex]);
   }, [placeholderIndex]);
-
-  // Handle workbench attachment
-  const handleWorkbenchAttach = useCallback((workbench) => {
-    setAttachedWorkbench(workbench);
-    onWorkbenchClick?.(workbench);
-  }, [onWorkbenchClick]);
-
-  // Handle workbench detachment
-  const handleWorkbenchDetach = useCallback(() => {
-    detachWorkbench();
-    setAttachedWorkbench(null);
-    onWorkbenchClick?.(null);
-  }, [onWorkbenchClick, detachWorkbench]);
 
   // Sync with parent's uploadedFiles
   useEffect(() => {
@@ -153,12 +133,9 @@ const ChatInput = forwardRef(function ChatInput(
             {
               web: webEnabled,
               uploadedFiles: attachedFiles,
-              attachedWorkbench: attachedWorkbench,
               response: null,
               hasContext:
                 webEnabled ||
-                workbenchContext ||
-                attachedWorkbench ||
                 attachedFiles.length > 0,
             },
             false
@@ -179,7 +156,7 @@ const ChatInput = forwardRef(function ChatInput(
   };
 
   const canRunInference = () => {
-    return webEnabled || workbenchContext || attachedFiles.length > 0;
+    return webEnabled || attachedFiles.length > 0;
   };
 
   useImperativeHandle(ref, () => ({
@@ -258,19 +235,6 @@ const ChatInput = forwardRef(function ChatInput(
               >
                 <BsPaperclip className="text-base sm:text-lg" />
               </button>
-
-              <button
-                type="button"
-                onClick={() => setIsWorkbenchModalOpen(true)}
-                disabled={disabled || isLoading}
-                title={attachedWorkbench ? `Attached: ${attachedWorkbench.name}` : "Connect Workbench"}
-                className={`group/btn relative p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-all duration-200 ${attachedWorkbench
-                    ? "text-violet-400 bg-violet-500/10"
-                    : "text-gray-400 hover:text-violet-400 hover:bg-violet-500/10"
-                  }`}
-              >
-                <BsBriefcase className="text-base sm:text-lg" />
-              </button>
             </div>
 
             {/* Web Search Toggle - Hidden on very small screens */}
@@ -288,45 +252,6 @@ const ChatInput = forwardRef(function ChatInput(
                 <BsGlobe2 className="text-base sm:text-lg" />
               </button>
             </div>
-
-            {/* Attached Workbench Indicator Pill */}
-            {attachedWorkbench && (
-              <div className="absolute top-[-40px] left-0 flex items-center gap-2 px-3 py-1.5 bg-[#161B22] border border-violet-500/30 rounded-lg shadow-lg animate-fade-in z-20">
-                {attachedWorkbench?.workbench && (
-                  <div className="mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <BsBriefcase className="text-blue-500 mr-2" />
-                        <span className="font-medium">{attachedWorkbench.workbench.name}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                          ({attachedWorkbench.files?.length || 0} files)
-                        </span>
-                      </div>
-                      <button
-                        onClick={handleWorkbenchDetach}
-                        className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 p-1 -mr-2"
-                        title="Detach workbench"
-                      >
-                        <BsX size={20} />
-                      </button>
-                    </div>
-                    {attachedWorkbench.files?.length > 0 && (
-                      <div className="mt-1 pl-6 text-xs text-gray-600 dark:text-gray-400">
-                        <div className="truncate">
-                          {attachedWorkbench.files.map((file, i) => (
-                            <span key={file.id} className="inline-flex items-center mr-2 mb-1">
-                              <BsFileEarmark className="mr-1" size={12} />
-                              {file.name}
-                              {i < attachedWorkbench.files.length - 1 ? ',' : ''}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Main Text Input Area */}
             <div className="flex-1 relative py-2.5 sm:py-3 px-1 sm:px-2 min-w-0">
@@ -430,13 +355,6 @@ const ChatInput = forwardRef(function ChatInput(
         @keyframes slide-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
       `}</style>
-
-      <AttachWorkbenchModal
-        isOpen={isWorkbenchModalOpen}
-        onClose={() => setIsWorkbenchModalOpen(false)}
-        onAttach={handleWorkbenchAttach}
-        currentWorkbench={attachedWorkbench}
-      />
     </div>
   );
 });

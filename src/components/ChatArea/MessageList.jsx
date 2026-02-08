@@ -14,6 +14,12 @@ const MessageList = ({ messages }) => {
     scrollToBottom();
   }, [messages]);
 
+  const handleSuggestionClick = (suggestion) => {
+    // Dispatch event for MainApp or ChatInput to handle
+    const event = new CustomEvent('suggestionClicked', { detail: suggestion });
+    window.dispatchEvent(event);
+  };
+
   return (
     <div
       className="h-full overflow-y-auto px-4 md:px-6 py-4 scroll-smooth"
@@ -38,12 +44,13 @@ const MessageList = ({ messages }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl">
               {[
                 "Analyze my financial data",
-                "Generate a business report",
-                "Create KPI dashboard",
-                "Review my company metrics",
+                "Explain my business performance",
+                "How can I improve my margins?",
+                "Draft a summary of my latest files",
               ].map((suggestion, idx) => (
                 <button
                   key={idx}
+                  onClick={() => handleSuggestionClick(suggestion)}
                   className="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-gray-300 hover:text-white transition-all hover:border-white/20 backdrop-blur-sm"
                 >
                   {suggestion}
@@ -53,8 +60,11 @@ const MessageList = ({ messages }) => {
           </div>
         ) : (
           <>
-            {messages.map((message) => (
-              <Message key={message.id} message={message} />
+            {messages.map((message, index) => (
+              <Message 
+                key={message.id || `msg-${message.timestamp}-${index}`} 
+                message={message} 
+              />
             ))}
             <div ref={messagesEndRef} />
           </>

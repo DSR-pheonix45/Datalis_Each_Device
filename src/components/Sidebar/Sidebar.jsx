@@ -1,28 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { toast } from "react-hot-toast";
 import {
-  BsPlus,
-  BsChevronDown,
-  BsChevronRight,
   BsPerson,
   BsGear,
   BsChat,
-  BsBriefcase,
-  BsBuilding,
-  BsBarChart,
   BsExclamationCircle,
-  BsArrowRepeat,
   BsHouse,
   BsStars,
-  BsSearch,
+  BsChevronDown,
+  BsChevronRight,
 } from "react-icons/bs";
 import { useAuth } from "../../context/AuthContext";
-import { useWorkbench } from "../../context/WorkbenchContext";
 
 import ChatSearch from "../ChatSearch";
 import { supabase } from "../../lib/supabase";
-import { syncCredits } from "../../services/creditsService";
 
 const SidebarButton = ({
   icon: IconComponent,
@@ -129,12 +120,9 @@ const ExpandableSection = ({
 
 export default function Sidebar({
   isCollapsed = false,
-  onWorkbenchSelect: propOnWorkbenchSelect,
-  selectedWorkbench: propSelectedWorkbench,
   onNavigate, // Callback to close mobile sidebar after navigation
 }) {
-  const { user } = useAuth();
-  const { selectWorkbench, context } = useWorkbench();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -144,41 +132,7 @@ export default function Sidebar({
     onNavigate?.(); // Close mobile sidebar if callback provided
   };
 
-  const [activeWorkbench, setActiveWorkbench] = useState(
-    propSelectedWorkbench || context?.workbench || null
-  );
-
-  // Sync activeWorkbench with prop or context changes
-  useEffect(() => {
-    if (propSelectedWorkbench) {
-      setActiveWorkbench(propSelectedWorkbench);
-    } else if (context?.workbench) {
-      setActiveWorkbench(context.workbench);
-    }
-  }, [propSelectedWorkbench, context?.workbench]);
-
-  const activateWorkbench = (workbenchId) => {
-    const workbench = workbenches.find((w) => w.id === workbenchId);
-    if (workbench) {
-      setActiveWorkbench(workbench);
-      
-      // Use WorkbenchContext to select workbench globally
-      selectWorkbench(workbench);
-
-      if (propOnWorkbenchSelect) {
-        propOnWorkbenchSelect(workbench);
-      }
-      // Explicitly navigate to dashboard to show chat with this workbench
-      if (location.pathname !== "/dashboard") {
-        handleNavigation("/dashboard");
-      }
-      onNavigate?.(); // Close mobile sidebar
-    }
-  };
-
   const [expandedSections, setExpandedSections] = useState({
-    companyInfo: false,
-    workbench: true,
     history: false,
   });
 
@@ -191,64 +145,8 @@ export default function Sidebar({
 
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [workbenches, setWorkbenches] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [chatHistory, setChatHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [messageTokens, setMessageTokens] = useState(null); // User's message credits - null = loading
-
-  const loadMessageTokens = useCallback(async () => {
-    if (!user) {
-      // For non-logged-in users, show 0 credits
-      setMessageTokens(0);
-      return;
-    }
-
-    // Always sync with database
-    try {
-      const result = await syncCredits(user.id);
-      if (result.success && result.credits !== null) {
-        setMessageTokens(result.credits);
-      } else {
-        console.error("Failed to load credits:", result.error);
-        setMessageTokens(0); // Show 0 on error
-      }
-    } catch (error) {
-      console.error("Error loading message tokens:", error);
-      setMessageTokens(0); // Show 0 on error
-    }
-  }, [user]);
-
-  const fetchWorkbenches = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      // Try direct query first as it's more reliable across different schema versions
-      const { data, error } = await supabase
-        .from("workbenches")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        // If direct query fails (e.g. column doesn't exist), try RPC
-        console.warn("Direct workbench query failed, trying RPC:", error.message);
-        const { data: rpcData, error: rpcError } = await supabase.rpc("get_user_workbenches", {
-          p_user_id: user.id,
-        });
-
-        if (rpcError) throw rpcError;
-        setWorkbenches(rpcData || []);
-      } else {
-        setWorkbenches(data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching workbenches:", error);
-      toast.error("Failed to load workbenches");
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
 
   const fetchCompanies = useCallback(async () => {
     if (!user) return;
@@ -291,7 +189,6 @@ export default function Sidebar({
           title,
           created_at,
           last_message_at,
-          workbench_id,
           company_id
         `
         )
@@ -315,10 +212,8 @@ export default function Sidebar({
   }, [user]);
 
   useEffect(() => {
-    fetchWorkbenches();
     fetchCompanies();
     fetchChatHistory();
-    loadMessageTokens();
 
     // Keyboard shortcut for search (Ctrl+K)
     const handleKeyDown = (e) => {
@@ -328,13 +223,6 @@ export default function Sidebar({
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-
-    // Listen for credits updated events (from any credit-consuming action)
-    const handleCreditsUpdated = () => {
-      loadMessageTokens();
-    };
-
-    window.addEventListener("creditsUpdated", handleCreditsUpdated);
 
     // Listen for chat history updates
     const handleChatHistoryUpdate = () => {
@@ -348,20 +236,12 @@ export default function Sidebar({
     };
     window.addEventListener("companyCreated", handleCompanyCreated);
 
-    // Listen for workbench creation
-    const handleWorkbenchCreated = () => {
-      fetchWorkbenches();
-    };
-    window.addEventListener("workbenchCreated", handleWorkbenchCreated);
-
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("creditsUpdated", handleCreditsUpdated);
       window.removeEventListener("chatHistoryUpdated", handleChatHistoryUpdate);
       window.removeEventListener("companyCreated", handleCompanyCreated);
-      window.removeEventListener("workbenchCreated", handleWorkbenchCreated);
     };
-  }, [user, fetchChatHistory, fetchCompanies, fetchWorkbenches, loadMessageTokens]);
+  }, [user, fetchChatHistory, fetchCompanies]);
 
   const loadChatSession = async (sessionId) => {
     try {
@@ -419,7 +299,6 @@ export default function Sidebar({
           {/* New Chat Icon */}
           <button
             onClick={() => {
-              activateWorkbench(null);
               window.dispatchEvent(new CustomEvent("clearChat"));
               if (location.pathname !== "/dashboard") {
                 navigate("/dashboard");
@@ -432,72 +311,6 @@ export default function Sidebar({
             <BsChat className="text-xl" />
             <span className="absolute left-full ml-2 px-2 py-1 bg-[#161B22] border border-[#21262D] text-[#E6EDF3] text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
               New Chat
-            </span>
-          </button>
-
-          {/* Search Icon */}
-          <button
-            onClick={() => setIsSearchOpen(true)}
-            className="p-3 text-gray-400 hover:bg-white/5 hover:text-white rounded-lg transition-all group relative"
-            title="Search (Ctrl+K)"
-            aria-label="Search chats (Ctrl+K)"
-          >
-            <BsSearch className="text-xl" />
-            <span className="absolute left-full ml-2 px-2 py-1 bg-[#161B22] border border-[#21262D] text-[#E6EDF3] text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-              Search
-            </span>
-          </button>
-
-          {/* Company Icon */}
-          <button
-            onClick={() => navigate("/dashboard/company")}
-            className={`p-3 rounded-lg transition-all group relative ${location.pathname === "/dashboard/company"
-              ? "bg-teal-500/15 text-teal-400 border border-teal-500/30"
-              : "text-gray-400 hover:bg-white/5 hover:text-white"
-              }`}
-            title="Company"
-            aria-label="Manage companies"
-          >
-            <BsBuilding className="text-xl" />
-            {companies.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-teal-500/20 text-teal-400 border border-teal-500/30 text-xs rounded-full flex items-center justify-center">
-                {companies.length}
-              </span>
-            )}
-            <span className="absolute left-full ml-2 px-2 py-1 bg-[#161B22] border border-[#21262D] text-[#E6EDF3] text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-              Companies
-            </span>
-          </button>
-
-          {/* Visuals Icon */}
-          <button
-            onClick={() => navigate("/dashboard/visuals")}
-            className={`p-3 rounded-lg transition-all group relative ${location.pathname.includes("/dashboard/visuals")
-              ? "bg-teal-500/15 text-teal-400 border border-teal-500/30"
-              : "text-[#7D8590] hover:bg-[#161B22] hover:text-[#E6EDF3]"
-              }`}
-            title="Visuals"
-            aria-label="View visual dashboard"
-          >
-            <BsBarChart className="text-xl" />
-            <span className="absolute left-full ml-2 px-2 py-1 bg-[#161B22] border border-[#21262D] text-[#E6EDF3] text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-              Visuals
-            </span>
-          </button>
-
-          {/* Workbench Navigation */}
-          <button
-            onClick={() => navigate("/dashboard/workbenches")}
-            className={`p-3 rounded-lg transition-all group relative ${location.pathname === "/dashboard/workbenches"
-              ? "bg-teal-500/15 text-teal-400 border border-teal-500/30"
-              : "text-gray-400 hover:bg-white/5 hover:text-white"
-              }`}
-            title="Workbench"
-            aria-label="Manage workbenches"
-          >
-            <BsBriefcase className="text-xl" />
-            <span className="absolute left-full ml-2 px-2 py-1 bg-[#161B22] border border-[#21262D] text-[#E6EDF3] text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-              Workbench
             </span>
           </button>
 
@@ -534,17 +347,6 @@ export default function Sidebar({
               Settings
             </span>
           </button>
-
-          {/* Message Credits */}
-          <div className="p-3 text-center">
-            <div
-              className={`text-lg font-bold ${messageTokens <= 5 ? "text-red-400" : "text-teal-400"
-                }`}
-            >
-              {messageTokens}
-            </div>
-            <div className="text-xs text-[#484F58]">Credits</div>
-          </div>
         </div>
       ) : (
         // Expanded Sidebar - Full View
@@ -559,8 +361,6 @@ export default function Sidebar({
               subtitle="Ctrl + K"
               onNavigate={onNavigate}
               onClick={() => {
-                // Clear active workbench
-                activateWorkbench(null);
                 // Dispatch custom event to clear chat
                 window.dispatchEvent(new CustomEvent("clearChat"));
                 // Navigate to dashboard
@@ -573,39 +373,6 @@ export default function Sidebar({
             </SidebarButton>
 
             {/* Message Credits moved to bottom */}
-
-            {/* Divider */}
-            <div className="h-px bg-gradient-to-r from-transparent via-gray-800/60 to-transparent my-3" />
-
-            <SidebarButton
-              icon={BsBuilding}
-              href="/dashboard/company"
-              isActive={location.pathname === "/dashboard/company"}
-              badge={companies.length}
-              onNavigate={onNavigate}
-            >
-              Companies
-            </SidebarButton>
-
-            {/* Visuals Navigation */}
-            <SidebarButton
-              icon={BsBarChart}
-              href="/dashboard/visuals"
-              isActive={location.pathname.includes("/dashboard/visuals")}
-              onNavigate={onNavigate}
-            >
-              Visuals
-            </SidebarButton>
-
-            {/* Workbench Navigation */}
-            <SidebarButton
-              icon={BsBriefcase}
-              href="/dashboard/workbenches"
-              isActive={location.pathname === "/dashboard/workbenches"}
-              onNavigate={onNavigate}
-            >
-              Workbench
-            </SidebarButton>
           </div>
 
           {/* Divider before expandable sections */}
@@ -613,99 +380,6 @@ export default function Sidebar({
 
           {/* Expandable Sections - Scrollable area */}
           <div className="flex-1 min-h-0 overflow-y-auto pb-4">
-            <ExpandableSection
-              title="Companies"
-              isExpanded={expandedSections.companyInfo}
-              onToggle={() => toggleSection("companyInfo")}
-              badge={companies.length}
-            >
-              {companies.length > 0 ? (
-                <div className="space-y-1">
-                  {companies.map((company) => (
-                    <div
-                      key={company.id}
-                      onClick={() => {
-                        // TODO: View company details or filter by company
-                        console.log("Selected company:", company.id);
-                      }}
-                      className="px-3 py-2 text-gray-300 hover:bg-white/5 hover:text-white rounded-md transition-colors cursor-pointer group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm truncate flex-1">
-                          {company.company_name}
-                        </span>
-                        <BsBuilding className="text-xs opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                      {company.gst_no && (
-                        <span className="text-xs text-gray-500 mt-1 block">
-                          GST: {company.gst_no}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-6 px-4 text-center">
-                  <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-2 group-hover:border-teal-500/30 transition-colors">
-                    <BsBuilding className="text-gray-500 text-lg" />
-                  </div>
-                  <p className="text-gray-400 text-xs mb-2">No companies yet</p>
-
-                </div>
-              )}
-            </ExpandableSection>
-
-            <ExpandableSection
-              title="Workbench"
-              isExpanded={expandedSections.workbench}
-              onToggle={() => toggleSection("workbench")}
-              badge={workbenches.length}
-            >
-              {loading ? (
-                <div className="flex items-center gap-2 text-gray-400 text-sm py-1">
-                  <BsArrowRepeat className="animate-spin" />
-                  <span>Loading...</span>
-                </div>
-              ) : workbenches.length > 0 ? (
-                <div className="space-y-1">
-                  {workbenches.map((workbench) => (
-                    <div
-                      key={workbench.id}
-                      onClick={() => activateWorkbench(workbench.id)}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${activeWorkbench?.id === workbench.id ||
-                        propSelectedWorkbench?.id === workbench.id
-                        ? "bg-teal-500/10 text-white"
-                        : "text-gray-300 hover:bg-white/5 hover:text-white"
-                        }`}
-                    >
-                      <BsBriefcase className="text-sm" />
-                      <span className="flex-1 text-sm truncate">
-                        {workbench.name}
-                      </span>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full ${workbench.type === "personal"
-                          ? "bg-blue-500/20 text-blue-400"
-                          : "bg-purple-500/20 text-purple-400"
-                          }`}
-                      >
-                        {workbench.type}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-gray-400 text-sm py-1">
-                  <p className="mb-2">No workbenches created</p>
-                  <button
-                    onClick={() => navigate("/workbenches")}
-                    className="text-teal-400 hover:text-teal-300 text-xs underline"
-                  >
-                    Create your first workbench
-                  </button>
-                </div>
-              )}
-            </ExpandableSection>
-
             <ExpandableSection
               title="History"
               isExpanded={expandedSections.history}
@@ -748,65 +422,6 @@ export default function Sidebar({
                 </div>
               )}
             </ExpandableSection>
-          </div>
-
-          {/* Message Credits/Tokens Section - Fixed at bottom */}
-          <div className="flex-shrink-0 pb-2 mt-auto">
-            <div className="px-3">
-              <div className="bg-white/5 border border-white/10 rounded-lg px-4 py-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-400 font-medium">
-                    Message Credits
-                  </span>
-                  <span
-                    className={`text-2xl font-bold ${messageTokens <= 5
-                      ? "text-red-500"
-                      : messageTokens <= 10
-                        ? "text-amber-500"
-                        : "text-[#00C6C2]"
-                      }`}
-                  >
-                    {messageTokens}
-                  </span>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="w-full bg-black/40 rounded-full h-2 overflow-hidden mb-2">
-                  <div
-                    className={`h-full rounded-full transition-all duration-300 ${messageTokens <= 5
-                      ? "bg-red-500"
-                      : messageTokens <= 10
-                        ? "bg-amber-500"
-                        : "bg-gradient-to-r from-[#00C6C2] to-[#00A8A3]"
-                      }`}
-                    style={{ width: `${(messageTokens / 30) * 100}%` }}
-                  />
-                </div>
-
-                <p className="text-xs text-gray-500">
-                  {messageTokens > 0
-                    ? `${messageTokens} message${messageTokens !== 1 ? "s" : ""
-                    } remaining`
-                    : "No messages left"}
-                </p>
-
-                {messageTokens <= 5 && messageTokens > 0 && (
-                  <div className="mt-2 text-xs text-amber-500 flex items-center">
-                    <BsExclamationCircle className="mr-1" />
-                    Running low on credits
-                  </div>
-                )}
-
-                {messageTokens === 0 && (
-                  <button
-                    className="w-full mt-2 px-3 py-2 bg-[#00C6C2] text-[#0E1117] rounded-lg text-xs font-medium hover:bg-[#00A8A3] transition-colors"
-                    onClick={() => navigate("/settings")}
-                  >
-                    Get More Credits
-                  </button>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* User Section - Fixed at bottom */}

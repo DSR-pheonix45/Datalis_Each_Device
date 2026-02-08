@@ -4,8 +4,8 @@ import { useTheme } from "../../context/ThemeContext";
 
 const features = [
   { label: "AI-Powered Insights" },
-  { label: "Real-time KPIs" },
-  { label: "30 Free Credits" },
+  { label: "Document Analysis" },
+  { label: "Data Discovery" },
 ];
 
 const logos = [
@@ -135,7 +135,7 @@ export default function FinalCTA() {
               }`}
           >
             Join hundreds of finance teams using Datalis to make faster, smarter
-            decisions. Start with 30 free credits today.
+            decisions. Start your journey today.
           </motion.p>
 
           {/* Feature pills - No emojis */}
@@ -191,7 +191,7 @@ export default function FinalCTA() {
             className={`text-sm mt-4 mb-16 ${isDark ? "text-gray-500" : "text-gray-500"
               }`}
           >
-            No credit card required • 30 free credits • Cancel anytime
+            Start your data journey today • Cancel anytime
           </motion.p>
 
           {/* Logo Carousel */}

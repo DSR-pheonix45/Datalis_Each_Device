@@ -1,5 +1,13 @@
-// Supabase client is currently disabled for maintenance.
-// All methods return no-op stubs.
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Check if we are on localhost to bypass maintenance mode
+const isLocalhost = 
+  window.location.hostname === 'localhost' || 
+  window.location.hostname === '127.0.0.1' || 
+  window.location.hostname === '';
 
 function createNoopSupabase() {
   return {
@@ -27,17 +35,31 @@ function createNoopSupabase() {
   };
 }
 
-const supabase = createNoopSupabase();
+// Initialize Supabase client
+const supabase = isLocalhost 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : createNoopSupabase();
 
 export { supabase };
 
-// AUTH HELPERS (Stubs)
-export const signUp = async () => ({ success: false, error: 'Services under maintenance' });
-export const signIn = async () => ({ success: false, error: 'Services under maintenance' });
-export const signOut = async () => {};
-export const getCurrentUser = async () => ({ user: null, error: null });
-export const resetPassword = async () => ({ data: null, error: 'Services under maintenance' });
+// AUTH HELPERS
+export const signOut = async () => {
+  if (!isLocalhost) return;
+  await supabase.auth.signOut();
+};
+
+export const getCurrentUser = async () => {
+  if (!isLocalhost) return { user: null, error: null };
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    return { user, error: null };
+  } catch (error) {
+    return { user: null, error: error.message };
+  }
+};
+
 export const onAuthStateChange = (callback) => {
-  // Return a dummy subscription
-  return { data: { subscription: { unsubscribe: () => {} } } };
+  if (!isLocalhost) return { data: { subscription: { unsubscribe: () => {} } } };
+  return supabase.auth.onAuthStateChange(callback);
 };

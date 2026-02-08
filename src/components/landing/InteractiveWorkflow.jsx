@@ -5,14 +5,6 @@ import { useTheme } from "../../context/ThemeContext";
 const workflowSteps = [
   {
     id: 1,
-    title: "KPI Dashboard",
-    heading: "Key Metrics Calculated Instantly",
-    description: "Our AI engine automatically calculates profitability ratios, liquidity metrics, efficiency indicators, and growth KPIs without manual formulas.",
-    cta: "See all KPI metrics",
-    ctaLink: "/features/kpis",
-  },
-  {
-    id: 2,
     title: "Dabby AI",
     heading: "Chat with Your Financial Data",
     description: "Ask complex financial questions in natural language. Dabby uses RAG technology to provide context-aware answers backed by your actual data.",
@@ -20,20 +12,12 @@ const workflowSteps = [
     ctaLink: "/features/dabby",
   },
   {
-    id: 3,
-    title: "Workbenches",
-    heading: "Organize by Projects",
-    description: "Create project-based workspaces for your financial data. Map columns, manage files, and switch between personal and company scope seamlessly.",
-    cta: "Learn about workbenches",
-    ctaLink: "/features/workbenches",
-  },
-  {
-    id: 4,
-    title: "Reports",
-    heading: "Professional PDF Reports",
-    description: "Generate beautiful, branded reports in seconds. Choose from customizable templates, add your logo, and export to PDF for stakeholder reviews.",
-    cta: "See report templates",
-    ctaLink: "/features/reports",
+    id: 2,
+    title: "Analysis",
+    heading: "Deep Document Intelligence",
+    description: "Extract meaningful insights from financial statements, PDFs, and spreadsheets in seconds. Use our smart templates to organize your findings and share them with your team.",
+    cta: "Explore templates",
+    ctaLink: "/templates",
   },
 ];
 
@@ -178,27 +162,8 @@ export default function InteractiveWorkflow() {
                       {/* App content mockup */}
                       <div className={`aspect-auto sm:aspect-[4/3] p-4 md:p-6 ${theme === "dark" ? "bg-[#0a0a0a]" : "bg-gray-50"
                         }`}>
-                        {/* KPI mockup */}
-                        {activeStep === 0 && (
-                          <div className="h-full flex flex-col gap-4">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                              {[...Array(6)].map((_, i) => (
-                                <div key={i} className={`rounded-lg p-2 md:p-3 ${theme === "dark" ? "bg-[#111111]" : "bg-white border border-gray-200"}`}>
-                                  <div className={`w-6 h-6 md:w-8 md:h-8 rounded-lg mb-2 ${theme === "dark" ? "bg-[#81E6D9]/20" : "bg-[#1a1a1a]"}`}></div>
-                                  <div className={`h-3 md:h-4 rounded w-12 md:w-16 mb-1 ${theme === "dark" ? "bg-white/10" : "bg-gray-100"}`}></div>
-                                  <div className={`h-4 md:h-6 rounded w-16 md:w-20 ${theme === "dark" ? "bg-[#81E6D9]/10" : "bg-gray-200"}`}></div>
-                                </div>
-                              ))}
-                            </div>
-                            <div className={`flex-1 min-h-[100px] rounded-lg p-4 flex items-end gap-1 md:gap-2 ${theme === "dark" ? "bg-[#111111]" : "bg-white border border-gray-200"}`}>
-                              {[40, 65, 45, 80, 55, 70, 90, 60].map((h, i) => (
-                                <div key={i} className={`flex-1 rounded-t ${theme === "dark" ? "bg-[#81E6D9]" : "bg-[#1a1a1a]"}`} style={{ height: `${h}%`, opacity: 0.5 + (i * 0.06) }}></div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                         {/* Chat mockup */}
-                        {activeStep === 1 && (
+                        {activeStep === 0 && (
                           <div className="h-full flex flex-col min-h-[250px]">
                             <div className={`flex-1 rounded-lg p-3 md:p-4 flex flex-col gap-3 ${theme === "dark" ? "bg-[#111111]" : "bg-white border border-gray-200"}`}>
                               <div className="flex gap-3">
@@ -222,33 +187,8 @@ export default function InteractiveWorkflow() {
                             </div>
                           </div>
                         )}
-                        {/* Workbench mockup */}
-                        {activeStep === 2 && (
-                          <div className="h-full flex flex-col sm:flex-row gap-4">
-                            <div className={`w-full sm:w-48 rounded-lg p-3 ${theme === "dark" ? "bg-[#111111]" : "bg-white border border-gray-200"}`}>
-                              <div className={`h-4 rounded w-20 mb-4 ${theme === "dark" ? "bg-white/10" : "bg-gray-100"}`}></div>
-                              <div className="flex flex-row sm:flex-col gap-2 overflow-x-auto sm:overflow-x-visible no-scrollbar">
-                                {[...Array(5)].map((_, i) => (
-                                  <div key={i} className={`h-8 rounded-lg flex items-center gap-2 px-2 flex-shrink-0 sm:flex-shrink ${i === 1 ? (theme === "dark" ? "bg-[#81E6D9]/20" : "bg-[#1a1a1a]/10") : (theme === "dark" ? "bg-white/5" : "bg-gray-50")
-                                    }`}>
-                                    <div className={`w-4 h-4 rounded ${theme === "dark" ? "bg-white/10" : "bg-gray-200"}`}></div>
-                                    <div className={`h-3 w-16 sm:flex-1 rounded ${theme === "dark" ? "bg-white/10" : "bg-gray-200"}`}></div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                            <div className={`flex-1 rounded-lg p-4 ${theme === "dark" ? "bg-[#111111]" : "bg-white border border-gray-200"}`}>
-                              <div className={`h-6 rounded w-32 mb-4 ${theme === "dark" ? "bg-white/10" : "bg-gray-100"}`}></div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {[...Array(4)].map((_, i) => (
-                                  <div key={i} className={`h-16 md:h-20 rounded-lg ${theme === "dark" ? "bg-white/5" : "bg-gray-50"}`}></div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
                         {/* Reports mockup */}
-                        {activeStep === 3 && (
+                        {activeStep === 1 && (
                           <div className={`h-full rounded-lg p-3 md:p-4 flex flex-col ${theme === "dark" ? "bg-[#111111]" : "bg-white border border-gray-200"}`}>
                             <div className="flex justify-between items-center mb-4">
                               <div className={`h-5 md:h-6 rounded w-32 md:w-40 ${theme === "dark" ? "bg-white/10" : "bg-gray-100"}`}></div>

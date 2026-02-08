@@ -28,10 +28,15 @@ export default function Navbar() {
 
   const isActive = (path) => location.pathname === path;
 
+  const isLocalhost = 
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1' || 
+    window.location.hostname === '';
+
   return (
     <>
       {/* Product Launch Banner */}
-      <Link to="/maintenance" className="block bg-[#171717] py-2 px-4 text-center hover:bg-[#262626] transition-colors">
+      <Link to={isLocalhost ? "/signup" : "/maintenance"} className="block bg-[#171717] py-2 px-4 text-center hover:bg-[#262626] transition-colors">
         <div className="inline-flex items-center gap-2 text-sm font-mono font-medium text-white">
           <span className="uppercase tracking-wide">
             Dec. 31 Product Launch
@@ -170,22 +175,6 @@ export default function Navbar() {
               ></span>
             </Link>
 
-            {/* Pricing Link */}
-            <Link
-              to="/pricing"
-              className={`relative group text-[14.4px] font-mono font-medium px-4 py-2 transition-all duration-200 ${theme === "dark" ? "text-white " : "text-[#292929] "
-                }`}
-            >
-              Pricing
-              {/* Hover underline */}
-              <span
-                className={`absolute bottom-0 left-0 w-full h-0.5 bg-[#81E6D9] transition-transform duration-200 origin-left ${isActive("/pricing")
-                  ? "scale-x-100"
-                  : "scale-x-0 group-hover:scale-x-100"
-                  }`}
-              ></span>
-            </Link>
-
             {/* Templates Link */}
             <Link
               to="/templates"
@@ -245,7 +234,7 @@ export default function Navbar() {
 
             {user ? (
               <Link
-                to="/maintenance"
+                to={isLocalhost ? "/dashboard" : "/maintenance"}
                 className={`px-6 py-2 text-base font-mono font-medium text-black bg-[#81E6D9] rounded-full border border-[#81E6D9] hover:bg-transparent transition-all duration-200 ${theme === "dark"
                   ? "hover:text-white hover:border-white"
                   : "hover:text-[#1a1a1a] hover:border-[#1a1a1a]"
@@ -256,7 +245,7 @@ export default function Navbar() {
             ) : (
               <>
                 <Link
-                  to="/maintenance"
+                  to={isLocalhost ? "/signup" : "/maintenance"}
                   className={`px-6 py-2 text-base font-mono font-medium text-black bg-[#81E6D9] rounded-full border border-[#81E6D9] hover:bg-transparent transition-all duration-200 ${theme === "dark"
                     ? "hover:text-white hover:border-white"
                     : "hover:text-[#1a1a1a] hover:border-[#1a1a1a]"
@@ -265,7 +254,7 @@ export default function Navbar() {
                   Sign Up
                 </Link>
                 <Link
-                  to="/login"
+                  to={isLocalhost ? "/login" : "/maintenance"}
                   className={`text-base font-mono font-normal px-6 py-2 border rounded-full transition-all duration-200 ${theme === "dark"
                     ? "text-white border-white/30 "
                     : "text-[#292929] border-[#292929] "
@@ -351,13 +340,13 @@ export default function Navbar() {
                 Features
               </Link>
               <Link
-                to="/pricing"
+                to="/templates"
                 className={`text-[14.4px] font-mono font-medium px-4 py-3 text-left transition-colors duration-200 ${theme === "dark"
                   ? "text-white hover:text-[#81E6D9]"
                   : "text-[#292929] hover:text-[#0D9488]"
                   }`}
               >
-                Pricing
+                Templates
               </Link>
               <hr
                 className={

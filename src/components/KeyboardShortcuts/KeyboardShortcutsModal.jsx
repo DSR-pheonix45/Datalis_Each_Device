@@ -24,13 +24,6 @@ const shortcuts = [
     ],
   },
   {
-    category: "Workbench",
-    items: [
-      { keys: ["Ctrl", "W"], description: "Open workbench panel" },
-      { keys: ["Ctrl", "U"], description: "Upload files" },
-    ],
-  },
-  {
     category: "General",
     items: [
       { keys: ["Ctrl", ","], description: "Open settings" },

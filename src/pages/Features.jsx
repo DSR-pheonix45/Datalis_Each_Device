@@ -30,39 +30,15 @@ const featuresData = [
     },
     {
         id: 3,
-        title: "Automated Report Generation",
-        highlight: "One-click professional reports",
-        description: "Generate comprehensive PDF and Excel reports with a single click. Save hours on manual report creation and focus on strategic decisions.",
+        title: "Deep Insights from Documents",
+        highlight: "Analyze complex financial PDFs",
+        description: "Extract meaningful information from financial statements, invoices, and various documents. Dabby understands the structure of financial data to give you deep analysis.",
         details: [
-            "Professional templates included",
-            "Customizable report formats",
-            "Scheduled automated delivery"
+            "Extract key insights from PDFs",
+            "Identify trends across multiple documents",
+            "Summarize long financial statements"
         ],
         workflowType: "grid-output"
-    },
-    {
-        id: 4,
-        title: "Workbench",
-        highlight: "Project-based organization",
-        description: "Create project-based workspaces for your financial data. Map columns, manage files, and switch between personal and company scope seamlessly.",
-        details: [
-            "Collaborative workspaces",
-            "Column mapping & data organization",
-            "Personal and company scopes"
-        ],
-        workflowType: "curved-branching"
-    },
-    {
-        id: 5,
-        title: "Intelligent Visualization",
-        highlight: "Auto-generated charts and graphs",
-        description: "Transform raw data into compelling visualizations instantly. The AI selects the best chart type for your data automatically.",
-        details: [
-            "Smart chart type selection",
-            "Interactive dashboards",
-            "Export-ready graphics"
-        ],
-        workflowType: "horizontal-flow"
     }
 ];
 
@@ -141,8 +117,8 @@ const WorkflowBranchingRight = ({ isDark, isInView }) => {
                 {/* Output Cards */}
                 <div className="flex flex-col gap-4">
                     {[
-                        { label: "Financial Reports", icon: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
-                        { label: "Data Insights", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" },
+                        { label: "Contextual Analysis", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" },
+                        { label: "Data Insights", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
                         { label: "Quick Answers", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" }
                     ].map((item, idx) => (
                         <motion.div
@@ -287,9 +263,9 @@ const WorkflowGridOutput = ({ isDark, isInView }) => {
                             <div className="w-2 h-2 rounded-full bg-white/50"></div>
                         </div>
                         <svg className="w-10 h-10 text-white mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                         </svg>
-                        <span className="text-white font-bold text-sm text-center uppercase tracking-wide">Report Engine</span>
+                        <span className="text-white font-bold text-sm text-center uppercase tracking-wide">Analysis Engine</span>
                     </div>
                 </motion.div>
 
@@ -335,7 +311,7 @@ const WorkflowGridOutput = ({ isDark, isInView }) => {
 
                 {/* Output Grid */}
                 <div className="flex flex-col gap-3">
-                    {["PDF Export", "Excel Sheet", "CSV Data"].map((label, idx) => (
+                    {["Insight Extraction", "Trend ID", "Summarization"].map((label, idx) => (
                         <motion.div
                             key={idx}
                             initial={{ opacity: 0, x: 20 }}
@@ -347,7 +323,7 @@ const WorkflowGridOutput = ({ isDark, isInView }) => {
                                 }`}
                         >
                             <svg className={`w-5 h-5 mb-0.5 ${isDark ? "text-[#81E6D9]" : "text-[#0D9488]"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             <span className={`text-[10px] font-bold uppercase tracking-wide ${isDark ? "text-white" : "text-gray-800"}`}>{label}</span>
                         </motion.div>
@@ -380,7 +356,7 @@ const WorkflowCurvedBranching = ({ isDark, isInView }) => {
                         <svg className="w-10 h-10 text-white mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
-                        <span className="text-white font-bold text-sm text-center uppercase tracking-wide">Workbench</span>
+                        <span className="text-white font-bold text-sm text-center uppercase tracking-wide">Data Hub</span>
                     </div>
                 </motion.div>
 
@@ -510,10 +486,9 @@ const WorkflowHorizontalFlow = ({ isDark, isInView }) => {
                             <div className="w-2 h-2 rounded-full bg-white/50"></div>
                         </div>
                         <svg className="w-10 h-10 text-white mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
-                        <span className="text-white font-bold text-xs text-center uppercase tracking-wide">Visualization Engine</span>
+                        <span className="text-white font-bold text-xs text-center uppercase tracking-wide">Intelligence Engine</span>
                     </div>
                 </motion.div>
 
@@ -544,10 +519,10 @@ const WorkflowHorizontalFlow = ({ isDark, isInView }) => {
                         : "bg-white border-2 border-[#81E6D9]/40 shadow-md"
                         }`}>
                         <svg className={`w-8 h-8 ${isDark ? "text-[#81E6D9]" : "text-[#0D9488]"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                     </div>
-                    <span className={`text-xs font-bold mt-2 uppercase tracking-wide ${isDark ? "text-white" : "text-gray-800"}`}>Charts</span>
+                    <span className={`text-xs font-bold mt-2 uppercase tracking-wide ${isDark ? "text-white" : "text-gray-800"}`}>Insights</span>
                 </motion.div>
             </div>
         </div>
@@ -614,7 +589,6 @@ const DemoModal = ({ isOpen, onClose }) => {
                     </div>
                     <div className="flex gap-2 md:gap-4 overflow-x-auto no-scrollbar">
                         <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs font-medium bg-white/10 rounded-md text-white whitespace-nowrap">Dashboard</span>
-                        <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs font-medium text-gray-400 hover:text-white cursor-pointer whitespace-nowrap">Reports</span>
                         <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs font-medium text-gray-400 hover:text-white cursor-pointer whitespace-nowrap">Dabby AI</span>
                     </div>
                 </div>

@@ -9,19 +9,9 @@ const faqItems = [
         answer: "Datalis connects directly to your PostgreSQL database or accepts CSV/Excel file uploads. We use secure, encrypted connections and never store your raw data - only the calculated insights and metrics you choose to save."
     },
     {
-        id: 2,
-        question: "What KPIs and metrics does Datalis calculate?",
-        answer: "Datalis automatically calculates 18+ financial metrics including profitability ratios (Gross Margin, Net Profit), liquidity ratios (Current Ratio, Quick Ratio), efficiency metrics (Inventory Turnover, Receivables Turnover), and growth indicators (Revenue Growth, YoY comparisons)."
-    },
-    {
         id: 3,
         question: "How does Dabby AI work?",
         answer: "Dabby uses RAG (Retrieval-Augmented Generation) technology to understand your financial data context. You can ask complex questions in natural language like 'What was our best performing product last quarter?' and get accurate, data-backed answers instantly."
-    },
-    {
-        id: 4,
-        question: "Can I collaborate with my team?",
-        answer: "Yes! Datalis supports team workbenches where you can organize projects, share insights, and collaborate on financial analysis. You can set up both personal and company-wide scopes for different use cases."
     },
     {
         id: 5,
@@ -31,7 +21,7 @@ const faqItems = [
     {
         id: 6,
         question: "Is there a free trial available?",
-        answer: "Yes! We give you 30 free credits with full access to all features. No credit card required to start. You can explore spreadsheets, KPI dashboards, Dabby AI, and report generation before committing."
+        answer: "Yes! We give you 30 free credits with full access to all features. No credit card required to start. You can explore spreadsheets, Dabby AI, and report generation before committing."
     }
 ];
 

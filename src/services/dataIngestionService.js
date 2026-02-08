@@ -7,7 +7,6 @@
 
 import Papa from "papaparse";
 import { supabase } from "../lib/supabase";
-import { autoDetectFieldMapping } from "../data/standardFinancialFields";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -15,10 +14,9 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
  * Upload and ingest a CSV file
  *
  * @param {File} file - The CSV file to upload
- * @param {string|null} workbenchId - Optional workbench to associate with
  * @returns {Promise<{success: boolean, dataset?: object, error?: string}>}
  */
-export async function uploadCSVFile(file, workbenchId = null) {
+export async function uploadCSVFile(file) {
   try {
     // Get current session
     const {
@@ -33,9 +31,6 @@ export async function uploadCSVFile(file, workbenchId = null) {
     // Prepare form data
     const formData = new FormData();
     formData.append("file", file, file.name);
-    if (workbenchId) {
-      formData.append("workbench_id", workbenchId);
-    }
 
     // Call the CSV ingest edge function
     const response = await fetch(`${SUPABASE_URL}/functions/v1/csv-ingest`, {
@@ -147,14 +142,13 @@ async function parseCSVSimple(file, maxRows = null, onProgress = null) {
     ].filter((i) => i >= 0 && i < rows.length);
     const samples = sampleIndices.map((i) => rows[i]?.[header]).filter(Boolean);
     const type = detectColumnType(samples);
-    const suggestedMapping = autoDetectFieldMapping(header);
 
     return {
       name: sanitizedName,
       originalName: header,
       type: type,
       sampleValues: samples.slice(0, 3),
-      suggestedField: suggestedMapping,
+      suggestedField: null,
     };
   });
 
@@ -222,14 +216,13 @@ export function parseCSVStreaming(file, onProgress = null) {
             .map((i) => rows[i]?.[header])
             .filter(Boolean);
           const type = detectColumnType(samples);
-          const suggestedMapping = autoDetectFieldMapping(header);
 
           return {
             name: sanitizedName,
             originalName: header,
             type: type,
             sampleValues: samples.slice(0, 3),
-            suggestedField: suggestedMapping,
+            suggestedField: null,
           };
         });
 
@@ -330,18 +323,14 @@ function detectColumnType(samples) {
 }
 
 /**
- * Get user's datasets
+ * Get all datasets for current user
  */
-export async function getUserDatasets(workbenchId = null) {
+export async function getUserDatasets() {
   try {
     let query = supabase
       .from("user_datasets")
       .select("*")
       .order("created_at", { ascending: false });
-
-    if (workbenchId) {
-      query = query.eq("workbench_id", workbenchId);
-    }
 
     const { data, error } = await query;
 

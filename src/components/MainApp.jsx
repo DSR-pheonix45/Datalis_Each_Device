@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import Sidebar from "./Sidebar/Sidebar";
 import Header from "./Header/Header";
@@ -7,79 +7,62 @@ import WelcomeSection from "./WelcomeSection/WelcomeSection";
 import ActionCards from "./ActionCards/ActionCards";
 import ChatInput from "./ChatInput/ChatInput";
 import ChatArea from "./ChatArea/ChatArea";
-import DatabaseSetupBanner from "./DatabaseSetup/DatabaseSetupBanner";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
-import { useWorkbench } from "../context/WorkbenchContext";
-import VisualDashboard from "./Visuals/VisualDashboard";
 import Settings from "./Settings/Settings";
-import WorkbenchesPage from "../pages/workbenches/WorkbenchesPage";
-import CompanyPage from "../pages/CompanyPage";
 import OnboardingTour from "./Onboarding/OnboardingTour";
+import FeedbackModal from "./ChatArea/FeedbackModal";
 import { supabase } from "../lib/supabase";
-import {
-  decrementCredits,
-  CREDIT_COSTS,
-  getUserCredits,
-} from "../services/creditsService";
+import { BsRocketTakeoff } from "react-icons/bs";
 
 export default function MainApp() {
   useTheme(); // Theme context is used for side effects
   const navigate = useNavigate();
   const location = useLocation();
   const { user, profile } = useAuth();
-  const [activeWorkbench] = useState(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [messages, setMessages] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [companies, setCompanies] = useState([]);
-  const [workbenches, setWorkbenches] = useState([]);
-  const [userCredits, setUserCredits] = useState(100);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [canvas] = useState([]); // Canvas state for KPI tracking
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
-  const [workbenchContext] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [currentContext, setCurrentContext] = useState("");
   const [isInConversation, setIsInConversation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [showTour, setShowTour] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const chatInputRef = useRef(null);
   const chatContainerRef = useRef(null);
 
-  // Auto-show onboarding tour for new users
+  // Auto-show onboarding tour for new users who just completed the onboarding form
   useEffect(() => {
     const hasCompletedOnboarding = localStorage.getItem("dabby_onboarding_completed");
-    if (!hasCompletedOnboarding && user?.id) {
+    const justOnboarded = location.state?.fromOnboarding;
+    
+    // Only show the tour if they just finished the onboarding form 
+    // OR if it's a first-time user on this device who hasn't seen it yet
+    // BUT we check if they are actually a new user by looking at profile.onboarding_completed
+    // Actually, if they just onboarded, they definitely should see it.
+    if (justOnboarded || (!hasCompletedOnboarding && user?.id && profile?.onboarding_completed === false)) {
       const timer = setTimeout(() => {
         setShowTour(true);
+        // Clear the state so it doesn't trigger again on refresh
+        if (justOnboarded) {
+          window.history.replaceState({}, document.title);
+        }
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [user?.id]);
+  }, [user?.id, location.state, profile?.onboarding_completed]);
 
   const handleTourComplete = () => {
     setShowTour(false);
     localStorage.setItem("dabby_onboarding_completed", "true");
   };
 
-  // Load credits from database on mount
-  useEffect(() => {
-    const loadCredits = async () => {
-      if (user?.id) {
-        const result = await getUserCredits(user.id);
-        if (result.success) {
-          localStorage.setItem("message_tokens", result.credits.toString());
-          setUserCredits(result.credits);
-        }
-      }
-    };
-    loadCredits();
-  }, [user?.id]);
-
-  // Fetch companies and workbenches for the logged-in user
+  // Fetch companies for the logged-in user
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user?.id) return;
@@ -110,39 +93,6 @@ export default function MainApp() {
             }));
           setCompanies(formattedCompanies);
         }
-
-        // Fetch workbenches created by the user
-        const { data: workbenchesData, error: workbenchesError } =
-          await supabase
-            .from("workbenches")
-            .select("id, name, description, company_id, created_at")
-            .order("created_at", { ascending: false });
-
-        if (workbenchesError) {
-          console.error("Error fetching workbenches:", workbenchesError);
-        } else {
-          // Map to the expected format
-          const formattedWorkbenches = (workbenchesData || []).map((w) => ({
-            id: w.id,
-            name: w.name,
-            description: w.description,
-            company_id: w.company_id,
-          }));
-          setWorkbenches(formattedWorkbenches);
-        }
-
-        // Fetch user credits from credits table
-        const { data: creditsData, error: creditsError } = await supabase
-          .from("credits")
-          .select("balance")
-          .eq("user_id", user.id)
-          .single();
-
-        if (creditsError && creditsError.code !== "PGRST116") {
-          console.error("Error fetching credits:", creditsError);
-        } else if (creditsData) {
-          setUserCredits(creditsData.balance || 100);
-        }
       } catch (error) {
         console.error("Error fetching user data:", error);
       }
@@ -150,22 +100,23 @@ export default function MainApp() {
 
     fetchUserData();
 
-    // Listen for company/workbench creation events to refresh data
+    // Listen for company creation events to refresh data
     const handleCompanyCreated = () => fetchUserData();
-    const handleWorkbenchCreated = () => fetchUserData();
 
     window.addEventListener("companyCreated", handleCompanyCreated);
-    window.addEventListener("workbenchCreated", handleWorkbenchCreated);
 
     return () => {
       window.removeEventListener("companyCreated", handleCompanyCreated);
-      window.removeEventListener("workbenchCreated", handleWorkbenchCreated);
     };
   }, [user?.id]);
 
   // Listen for clearChat event from sidebar
   useEffect(() => {
     const handleClearChat = () => {
+      // Show feedback modal before clearing if there was a conversation
+      if (messages.length > 0) {
+        setIsFeedbackModalOpen(true);
+      }
       setMessages([]);
       setUploadedFiles([]);
       setIsInConversation(false);
@@ -190,28 +141,15 @@ export default function MainApp() {
     };
   }, []);
 
-  // Listen for creditsUpdated event to refresh credit display
-  useEffect(() => {
-    const handleCreditsUpdated = async () => {
-      if (user?.id) {
-        const result = await getUserCredits(user.id);
-        if (result.success) {
-          localStorage.setItem("message_tokens", result.credits.toString());
-          setUserCredits(result.credits);
-        }
-      }
-    };
-
-    window.addEventListener("creditsUpdated", handleCreditsUpdated);
-
-    return () => {
-      window.removeEventListener("creditsUpdated", handleCreditsUpdated);
-    };
-  }, [user?.id]);
-
   // Auto-save chat session and generate summary
   const saveChatSession = async (sessionMessages) => {
-    if (!user?.id || sessionMessages.length < 2) return;
+    // Don't store chat sessions if user hasn't completed onboarding (e.g. "Try Chat" users)
+    if (!user?.id || sessionMessages.length < 2 || profile?.onboarding_completed === false) {
+      if (profile?.onboarding_completed === false) {
+        console.log("Chat session not saved: Onboarding incomplete");
+      }
+      return;
+    }
 
     try {
       // Generate title from first user message
@@ -229,7 +167,6 @@ export default function MainApp() {
         const sessionData = {
           user_id: user.id,
           title,
-          workbench_id: activeWorkbench?.id || null,
           company_id: companies[0]?.id || null,
           last_message_at: new Date().toISOString(),
         };
@@ -267,7 +204,6 @@ export default function MainApp() {
             size: f.size,
             type: f.type
           })) || [],
-          hasWorkbench: !!latestMessage.options?.attachedWorkbench,
         },
       });
 
@@ -279,25 +215,6 @@ export default function MainApp() {
       console.error("Error saving chat session:", error);
     }
   };
-
-  // Handle file passed from workbench
-  useEffect(() => {
-    if (location.state?.uploadedFile) {
-      const { uploadedFile, fileName } = location.state;
-      setUploadedFiles([uploadedFile]);
-      setIsInConversation(true);
-
-      // Auto-trigger analysis
-      setTimeout(() => {
-        if (chatInputRef.current) {
-          chatInputRef.current.triggerSend(`Analyze this file: ${fileName}`);
-        }
-      }, 500);
-
-      // Clear the location state
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-  }, [location.state, location.pathname, navigate]);
 
   const handleSendMessage = async (
     message,
@@ -317,24 +234,10 @@ export default function MainApp() {
       return;
     }
 
-    // Check message credits before sending
-    const storedCredits = parseInt(
-      localStorage.getItem("message_tokens") || "0",
-      10
-    );
-    if (storedCredits < CREDIT_COSTS.MESSAGE) {
-      toast.error(
-        `Insufficient credits. You need ${CREDIT_COSTS.MESSAGE} credit but have ${storedCredits}. Please upgrade your plan.`,
-        { duration: 4000 }
-      );
-      return;
-    }
-
     // Handle empty message with files
     let displayMessage = message;
     let llmQuery = message;
     const hasFiles = options.uploadedFiles && options.uploadedFiles.length > 0;
-    const hasWorkbench = options.attachedWorkbench;
 
     if (!message.trim() && hasFiles) {
       const fileCount = options.uploadedFiles.length;
@@ -358,45 +261,14 @@ export default function MainApp() {
     setMessages((prev) => [...prev, newMessage]);
     setIsInConversation(true); // Switch to conversation mode
 
-    // Decrement message credits (database + localStorage)
-    try {
-      if (user?.id) {
-        const result = await decrementCredits(
-          user.id,
-          CREDIT_COSTS.MESSAGE,
-          "chat_message"
-        );
-
-        // Update localStorage with the new balance from DB
-        if (result.success && result.credits !== undefined) {
-          localStorage.setItem("message_tokens", result.credits.toString());
-        }
-      }
-    } catch (error) {
-      console.warn("Failed to decrement credits in database:", error);
-    }
-
-    // Notify UI to update credits display (reload from DB for accuracy)
-    window.dispatchEvent(new Event("creditsUpdated"));
-
     // If there are uploaded files, show loading message
     let loadingId = null;
 
-    if (hasFiles || hasWorkbench) {
-      let loadingMsg = "";
-      if (hasFiles && hasWorkbench) {
-        const fileNames = options.uploadedFiles.map((f) => f.name).join(", ");
-        loadingMsg = message.trim()
-          ? `Analyzing workbench "${options.attachedWorkbench.name}" and files: ${fileNames}...`
-          : `Processing files: ${fileNames}...`;
-      } else if (hasWorkbench) {
-        loadingMsg = `Analyzing workbench "${options.attachedWorkbench.name}"...`;
-      } else {
-        const fileNames = options.uploadedFiles.map((f) => f.name).join(", ");
-        loadingMsg = message.trim()
-          ? `Analyzing files: ${fileNames}...`
-          : `Uploading files: ${fileNames}...`;
-      }
+    if (hasFiles) {
+      const fileNames = options.uploadedFiles.map((f) => f.name).join(", ");
+      const loadingMsg = message.trim()
+        ? `Analyzing files: ${fileNames}...`
+        : `Uploading files: ${fileNames}...`;
 
       const loading = {
         id: Date.now() + 2,
@@ -412,88 +284,6 @@ export default function MainApp() {
       loadingId = loading.id;
     }
 
-    // Fetch workbench files if a workbench is attached
-    let workbenchFiles = [];
-    if (options.attachedWorkbench) {
-      // Update last_used_by for the workbench
-      if (user?.id) {
-        supabase
-          .from("workbenches")
-          .update({ last_used_by: user.id })
-          .eq("id", options.attachedWorkbench.id)
-          .then(({ error }) => {
-            if (error && error.code === "PGRST204") {
-              console.warn("last_used_by column missing in workbenches table. Please run the migration.");
-            }
-          });
-      }
-
-      try {
-        console.log(
-          "Fetching files for workbench:",
-          options.attachedWorkbench.id
-        );
-
-        // First, get file metadata from workbench_files table
-        const { data: filesData, error: filesError } = await supabase
-          .from("workbench_files")
-          .select(
-            "id,file_name,file_size,file_type,bucket_path,created_at,updated_at"
-          )
-          .eq("workbench_id", options.attachedWorkbench.id)
-          .order("created_at", { ascending: false });
-
-        if (filesError) {
-          console.error("Error fetching workbench files metadata:", filesError);
-        } else if (filesData && filesData.length > 0) {
-          console.log(`Found ${filesData.length} files in workbench`);
-
-          // Download each file's content from storage
-          for (const file of filesData) {
-            const fileName = file.file_name || file.name;
-            const fileSize = file.file_size || file.size;
-            const filePath =
-              file.bucket_path ||
-              `${options.attachedWorkbench.id}/${fileName}`;
-
-            try {
-              const { data: fileBlob, error: downloadError } =
-                await supabase.storage
-                  .from("workbench-files")
-                  .download(filePath);
-
-              if (!downloadError && fileBlob) {
-                const content = await fileBlob.text();
-                workbenchFiles.push({
-                  name: fileName,
-                  content,
-                  size: fileSize || content.length,
-                  type: file.file_type || "text/plain",
-                });
-                console.log(
-                  `Loaded file: ${fileName} (${content.length} chars)`
-                );
-              } else {
-                console.warn(
-                  `Failed to download file ${fileName}:`,
-                  downloadError
-                );
-              }
-            } catch (downloadErr) {
-              console.warn(`Error downloading file ${fileName}:`, downloadErr);
-            }
-          }
-          console.log(
-            `Successfully loaded ${workbenchFiles.length} files from workbench`
-          );
-        } else {
-          console.log("No files found in workbench");
-        }
-      } catch (err) {
-        console.error("Error loading workbench files:", err);
-      }
-    }
-
     // Always call AI function (ChatInput handles this now)
     try {
       const { callLLMWithFallback } = await import("../services/llmService.js");
@@ -503,9 +293,6 @@ export default function MainApp() {
         context: currentContext, // Pass current context
         web_search: options.web || false,
         uploaded_files: options.uploadedFiles || [], // Pass File objects for frontend processing
-        workbench_files: workbenchFiles, // Pass workbench file contents
-        workbench_id:
-          options.attachedWorkbench?.id || activeWorkbench?.id || null,
         history: messages,
       });
 
@@ -513,11 +300,10 @@ export default function MainApp() {
         throw new Error(llmResponse.error);
       }
 
-      // Update current context if new files were processed (uploaded or workbench)
+      // Update current context if new files were processed (uploaded)
       if (
         llmResponse.context &&
-        ((options.uploadedFiles && options.uploadedFiles.length > 0) ||
-          workbenchFiles.length > 0)
+        (options.uploadedFiles && options.uploadedFiles.length > 0)
       ) {
         setCurrentContext(llmResponse.context);
       }
@@ -565,23 +351,6 @@ export default function MainApp() {
     }
   };
 
-  const handleGenerateReport = (reportData) => {
-    console.log("Generating report:", reportData);
-    // Here you would typically generate the report
-    // For now, we'll just log it
-  };
-
-  const handleReportBuilderClick = () => {
-    // We allow opening the modal for everyone now
-    // The modal itself will handle the plan restriction with a marketing message
-    setIsReportModalOpen(true);
-  };
-
-  const handleVisualDashboardClick = () => {
-    // Navigate to visuals dashboard
-    navigate("/dashboard/visuals");
-  };
-
   const handleQuestionCardClick = (question) => {
     if (chatInputRef.current) {
       chatInputRef.current.setMessage(question);
@@ -592,44 +361,14 @@ export default function MainApp() {
     }
   };
 
-  const handleQuickAnalysisClick = () => {
-    if (chatInputRef.current) {
-      // Get active KPIs and workbench context
-      const activeKPIs = canvas.filter((slot) => slot.kpiId).length;
-      const currentWorkbench = workbenches.find((w) => w.isActive);
-
-      let analysisPrompt = `Please provide a quick analysis of my business with these details:
-
-- Active KPIs being tracked: ${activeKPIs}`;
-
-      if (currentWorkbench) {
-        analysisPrompt += `
-- Current workbench: ${currentWorkbench.name}
-- Company: ${currentWorkbench.company || "N/A"}`;
-      }
-
-      analysisPrompt += `
-
-Please analyze:
-1. Key performance indicators and trends
-2. Business health overview
-3. Recommendations for improvement`;
-
-      chatInputRef.current.setMessage(analysisPrompt);
-
-      // Auto-send if inference conditions are met
-      if (chatInputRef.current.canRunInference()) {
-        setTimeout(() => {
-          chatInputRef.current.sendMessage(analysisPrompt);
-        }, 100);
-      }
-    }
-  };
-
   return (
     <div className="flex h-screen h-[100dvh] w-full overflow-hidden bg-[#0a0a0a] text-white font-dm-sans relative">
-      {/* Database Setup Banner */}
-      <DatabaseSetupBanner />
+      {/* Database Setup Banner - Removed as it's part of cleaned features */}
+      <FeedbackModal 
+        isOpen={isFeedbackModalOpen} 
+        onClose={() => setIsFeedbackModalOpen(false)} 
+        sessionId={currentSessionId}
+      />
 
       {/* Mobile/Tablet Backdrop Overlay */}
       {isMobileSidebarOpen && (
@@ -659,7 +398,9 @@ Please analyze:
             </svg>
           </button>
         </div>
-        <Sidebar onNavigate={() => setIsMobileSidebarOpen(false)} />
+        <Sidebar 
+          onNavigate={() => setIsMobileSidebarOpen(false)} 
+        />
       </div>
 
       {/* Desktop Sidebar - Hidden on mobile/tablet */}
@@ -668,7 +409,9 @@ Please analyze:
           isSidebarCollapsed ? "w-16" : "w-[260px]"
         }`}
       >
-        <Sidebar isCollapsed={isSidebarCollapsed} />
+        <Sidebar 
+          isCollapsed={isSidebarCollapsed} 
+        />
       </div>
 
       {/* Desktop Sidebar Toggle Button */}
@@ -699,11 +442,6 @@ Please analyze:
         {/* Header */}
         <Header
           companies={companies}
-          workbenches={workbenches}
-          userCredits={userCredits}
-          onGenerateReport={handleGenerateReport}
-          isReportModalOpen={isReportModalOpen}
-          setIsReportModalOpen={setIsReportModalOpen}
           onMobileMenuClick={() => setIsMobileSidebarOpen(true)}
         />
 
@@ -719,19 +457,13 @@ Please analyze:
                     isLoading={isLoading}
                     chatContainerRef={chatContainerRef}
                     onSendMessage={handleSendMessage}
-                    workbenchContext={workbenchContext}
                     uploadedFiles={uploadedFiles}
                   />
                 ) : (
                   <>
                     <WelcomeSection />
                     <ActionCards
-                      onReportBuilderClick={handleReportBuilderClick}
-                      canvas={canvas}
-                      onVisualDashboardClick={handleVisualDashboardClick}
                       onQuestionCardClick={handleQuestionCardClick}
-                      onQuickAnalysisClick={handleQuickAnalysisClick}
-                      userPlan={profile?.plans?.name || 'Basic'}
                     />
                   </>
                 )
@@ -743,36 +475,24 @@ Please analyze:
                 <>
                   <WelcomeSection />
                   <ActionCards
-                      onReportBuilderClick={handleReportBuilderClick}
-                      canvas={canvas}
-                      onVisualDashboardClick={handleVisualDashboardClick}
                       onQuestionCardClick={handleQuestionCardClick}
-                      onQuickAnalysisClick={handleQuickAnalysisClick}
-                      userPlan={profile?.plans?.name || 'Basic'}
                     />
                 </>
               }
             />
-            <Route path="visuals" element={<VisualDashboard />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="workbenches" element={<WorkbenchesPage />} />
-            <Route path="company" element={<CompanyPage />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>
 
-        {/* Chat Input - only show when not in conversation AND not on visuals/workbenches/company/settings page */}
+        {/* Chat Input - only show when not in conversation AND not on settings page */}
         {!isInConversation && 
-         !location.pathname.includes("/visuals") && 
-         !location.pathname.includes("/workbenches") && 
-         !location.pathname.includes("/company") && 
          !location.pathname.includes("/settings") && (
           <ChatInput
             ref={chatInputRef}
             onSendMessage={handleSendMessage}
             webSearchEnabled={webSearchEnabled}
-            workbenchContext={workbenchContext}
             uploadedFiles={uploadedFiles}
-            onWorkbenchClick={() => navigate("/dashboard/workbenches")}
           />
         )}
 

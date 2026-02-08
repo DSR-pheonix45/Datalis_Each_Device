@@ -1,13 +1,11 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { signUp, signIn, signOut, getCurrentUser, onAuthStateChange, supabase } from '../lib/supabase';
+import { signOut, getCurrentUser, onAuthStateChange, supabase } from '../lib/supabase';
 
 // Create context with default values
 const AuthContext = createContext({
   user: null,
   setUser: () => {},
   loading: true,
-  signup: async () => ({ success: false }),
-  login: async () => ({ success: false }),
   signOut: () => {}
 });
 
@@ -21,17 +19,58 @@ export function AuthProvider({ children }) {
     const fetchProfile = async () => {
       if (user?.id) {
         try {
+          // Try to fetch with plans join first
           const { data, error } = await supabase
             .from('profiles')
-            .select('*, plans(*)')
+            .select('*, plan:plans(*)')
             .eq('id', user.id)
             .single();
           
           if (!error && data) {
             setProfile(data);
+          } else if (error) {
+            // If the error is "no rows found", it's a new user
+            if (error.code === 'PGRST116') {
+              console.log('No profile found for user, initializing new user profile state');
+              setProfile({ 
+                id: user.id, 
+                email: user.email, 
+                plans: { name: 'Free' },
+                onboarding_completed: false 
+              });
+              return;
+            }
+
+            // If join fails (e.g. 500) but profile might exist, try fetching profile without join
+            console.warn('Profile join with plans failed, trying without join:', error.message);
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .single();
+            
+            if (!profileError && profileData) {
+              setProfile({ ...profileData, plans: { name: 'Free' } }); // Default plan
+            } else if (profileError?.code === 'PGRST116') {
+              // No profile found even without join
+              setProfile({ 
+                id: user.id, 
+                email: user.email, 
+                plans: { name: 'Free' },
+                onboarding_completed: false 
+              });
+            } else {
+              console.error('Failed to fetch profile due to database error:', profileError);
+              // Do NOT set onboarding_completed to false here, as it might be a temporary DB error
+              // for an existing user. Keep profile as null or set a loading/error state.
+              // For now, we'll keep it as null to avoid accidental onboarding triggers.
+              setProfile(null);
+            }
           }
         } catch (err) {
           console.error('Error fetching profile in AuthContext:', err);
+          // Do not assume onboarding is not completed on generic error
+          setProfile(null);
         }
       } else {
         setProfile(null);
@@ -102,63 +141,13 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const signup = async (email, password, username, fullName) => {
-    try {
-      setLoading(true);
-      const result = await signUp(email, password, { username, full_name: fullName });
-
-      if (result.success) {
-        // If signup successful but needs email verification
-        if (result.user && !result.user.email_confirmed_at) {
-          return {
-            success: true,
-            requiresEmailVerification: true,
-            message: 'Account created! Please check your email to verify your account before logging in.'
-          };
-        }
-        // If email confirmation is disabled in Supabase, user might be signed in immediately
-        return result;
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Signup error:', error);
-      return { success: false, error: 'An unexpected error occurred during signup.' };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const login = async (email, password) => {
-    try {
-      setLoading(true);
-      const result = await signIn(email, password);
-
-      if (result.success) {
-        // User will be set by the onAuthStateChange listener
-        return { success: true };
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: 'An unexpected error occurred during login.' };
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSignOut = async () => {
     try {
       setLoading(true);
-      const result = await signOut();
-
-      if (result.success) {
-        // User will be cleared by the onAuthStateChange listener
-        return { success: true };
-      }
-
-      return result;
+      await signOut();
+      setUser(null);
+      setProfile(null);
+      return { success: true };
     } catch (error) {
       console.error('Sign out error:', error);
       return { success: false, error: 'An unexpected error occurred during sign out.' };
@@ -173,8 +162,6 @@ export function AuthProvider({ children }) {
     profile,
     setProfile,
     loading,
-    signup,
-    login,
     signOut: handleSignOut
   };
 

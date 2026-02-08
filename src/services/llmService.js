@@ -9,99 +9,17 @@ const GROQ_API_KEY =
   import.meta.env.VITE_GROQ_API_KEY ||
   "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";
 
+// Fallback API keys
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
+
 // FREE Models on Groq (super fast!)
 const FREE_MODELS = [
   "llama-3.1-8b-instant", // Higher rate limits, best for large context
   "llama-3.3-70b-versatile", // Very smart but strict rate limits (1k TPM)
 ];
 
-// KPI Intent Keywords for detection
-const KPI_KEYWORDS = [
-  // Direct KPI mentions
-  "kpi",
-  "metric",
-  "ratio",
-  "margin",
-  "profitability",
-  // Specific KPIs
-  "net profit",
-  "gross margin",
-  "current ratio",
-  "quick ratio",
-  "debt to equity",
-  "roa",
-  "roe",
-  "return on assets",
-  "return on equity",
-  "operating margin",
-  "ebitda",
-  "working capital",
-  "dso",
-  "dpo",
-  "dio",
-  "inventory turnover",
-  "asset turnover",
-  "revenue growth",
-  // Action phrases
-  "calculate",
-  "compute",
-  "show me",
-  "what is the",
-  "analyze",
-  "financial analysis",
-  "financial health",
-  "performance metrics",
-];
 
-// Category-specific keywords
-const KPI_CATEGORY_KEYWORDS = {
-  profitability: [
-    "profit",
-    "margin",
-    "profitability",
-    "earnings",
-    "income",
-    "ebitda",
-    "net income",
-    "gross profit",
-  ],
-  liquidity: [
-    "liquidity",
-    "current ratio",
-    "quick ratio",
-    "cash",
-    "working capital",
-    "acid test",
-  ],
-  leverage: [
-    "leverage",
-    "debt",
-    "equity",
-    "solvency",
-    "debt ratio",
-    "debt to equity",
-  ],
-  efficiency: [
-    "efficiency",
-    "turnover",
-    "dso",
-    "dpo",
-    "dio",
-    "days",
-    "cycle",
-    "asset turnover",
-    "inventory",
-  ],
-  growth: [
-    "growth",
-    "yoy",
-    "year over year",
-    "trend",
-    "increase",
-    "decrease",
-    "change",
-  ],
-};
 
 /**
  * Process uploaded files for Edge Function (read content in frontend)
@@ -332,87 +250,6 @@ async function parseExcelFile(arrayBuffer, fileName) {
   }
 }
 
-/**
- * Extract worksheet data from XML content
- */
-function extractWorksheetData(xmlContent) {
-  const data = [];
-
-  // Look for numeric values in XML
-  const numberMatches =
-    xmlContent.match(/<v[^>]*>([0-9]+(?:\.[0-9]+)?)<\/v>/g) || [];
-  for (const match of numberMatches) {
-    const value = match.replace(/<[^>]*>/g, "").trim();
-    if (value && !data.includes(value)) {
-      data.push(value);
-    }
-  }
-
-  // Look for text values in XML
-  const textMatches = xmlContent.match(/<t[^>]*>([^<]+)<\/t>/g) || [];
-  for (const match of textMatches) {
-    const value = match.replace(/<[^>]*>/g, "").trim();
-    if (value && value.length > 2 && !data.includes(value)) {
-      data.push(value);
-    }
-  }
-
-  return data;
-}
-
-/**
- * Extract cell values from XML content
- */
-function extractCellValues(xmlContent) {
-  const values = [];
-
-  // Look for cell value patterns
-  const cellMatches =
-    xmlContent.match(/<c[^>]*r="[^"]*"[^>]*>(.*?)<\/c>/g) || [];
-
-  for (const cellMatch of cellMatches.slice(0, 100)) {
-    // Extract row and column reference
-    const refMatch = cellMatch.match(/r="([^"]*)"/);
-    const ref = refMatch ? refMatch[1] : "Unknown";
-
-    // Extract cell value
-    const valueMatch = cellMatch.match(/<v[^>]*>([^<]*)<\/v>/);
-    if (valueMatch) {
-      values.push(`${ref}: ${valueMatch[1]}`);
-    }
-
-    // Extract shared string reference
-    const sharedMatch = cellMatch.match(/t="s"[^>]*><v[^>]*>([^<]*)<\/v>/);
-    if (sharedMatch) {
-      values.push(`${ref}: [Shared String ${sharedMatch[1]}]`);
-    }
-  }
-
-  return values;
-}
-
-/**
- * Extract shared strings from XML content
- */
-function extractSharedStrings(xmlContent) {
-  const strings = {};
-
-  // Look for shared strings section
-  const sharedStringsSection = xmlContent.match(/<sst[^>]*>(.*?)<\/sst>/s);
-  if (sharedStringsSection) {
-    const stringMatches =
-      sharedStringsSection[1].match(/<si[^>]*>(.*?)<\/si>/g) || [];
-
-    stringMatches.forEach((match, index) => {
-      const textMatch = match.match(/<t[^>]*>(.*?)<\/t>/);
-      if (textMatch) {
-        strings[index] = textMatch[1];
-      }
-    });
-  }
-
-  return strings;
-}
 
 /**
  * Call Groq API (100% FREE and FAST!)
@@ -515,39 +352,165 @@ Current Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 
   }
 }
 
+/**
+ * Fallback: Call Gemini API directly
+ */
+async function callGeminiAPI(request) {
+  try {
+    if (!GEMINI_API_KEY) throw new Error("Gemini API key not configured");
+
+    console.log("🚀 Falling back to Gemini API...");
+    
+    // We use gemini-1.5-flash which is fast and has a generous free tier
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    
+    const systemPrompt = `You are Dabby Consultant, an expert financial AI assistant. Your goal is to provide specific, actionable financial insights.
+    Be concise, professional, and provide 2-3 specific clickable suggestions at the end in the format [SUGGESTION: Action].`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `SYSTEM INSTRUCTIONS: ${systemPrompt}\n\nUSER QUERY: ${request.query}${request.context ? `\n\nCONTEXT: ${request.context}` : ""}` }]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!responseText) throw new Error("No response from Gemini API");
+
+    console.log("✅ Gemini API succeeded");
+    return { response: responseText };
+  } catch (error) {
+    console.error("❌ Gemini API call failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Fallback: Call OpenRouter API
+ */
+async function callOpenRouterAPI(request) {
+  try {
+    if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API key not configured");
+
+    console.log("🚀 Falling back to OpenRouter API...");
+
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://datalis.ai",
+        "X-Title": "Datalis"
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash-001", // Good balanced model on OpenRouter
+        messages: [
+          {
+            role: "system",
+            content: "You are Dabby Consultant, an expert financial AI assistant."
+          },
+          {
+            role: "user",
+            content: request.query + (request.context ? `\n\nContext: ${request.context}` : "")
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const responseText = data.choices?.[0]?.message?.content;
+
+    if (!responseText) throw new Error("No response from OpenRouter API");
+
+    console.log("✅ OpenRouter API succeeded");
+    return { response: responseText };
+  } catch (error) {
+    console.error("❌ OpenRouter API call failed:", error);
+    throw error;
+  }
+}
+
 export async function callLLMDirectly(request) {
-  // Try FREE Groq models in order until one works
-  console.log("🆓 Using FREE Groq models");
+  // 1. Try FREE Groq models first
+  console.log("🆓 Trying Groq models...");
 
   for (let i = 0; i < FREE_MODELS.length; i++) {
     const model = FREE_MODELS[i];
     try {
-      console.log(`Trying FREE model ${i + 1}/${FREE_MODELS.length}: ${model}`);
+      console.log(`Trying Groq model ${i + 1}/${FREE_MODELS.length}: ${model}`);
       const result = await callGroqAPI(request, model);
-      console.log(`✅ SUCCESS with ${model}`);
       return result;
     } catch (error) {
-      console.warn(`❌ Model ${model} failed:`, error.message);
+      const isAuthError = error.message.includes("401") || error.message.toLowerCase().includes("invalid api key");
+      console.warn(`❌ Groq model ${model} failed:`, error.message);
 
-      // If this was the last model, return error
-      if (i === FREE_MODELS.length - 1) {
-        console.error("All FREE models failed");
-        return {
-          response: "",
-          error: error instanceof Error ? error.message : "All models failed",
-        };
+      if (isAuthError) {
+        console.warn("Auth error detected, skipping other Groq models...");
+        break; // Don't bother with other models if API key is invalid
       }
-
-      // Otherwise, try next model
-      console.log(`Trying next FREE model...`);
+      
+      if (i === FREE_MODELS.length - 1) {
+        console.log("All Groq models failed.");
+      }
     }
   }
+
+  // 2. Fallback to Gemini if Groq fails
+  if (GEMINI_API_KEY) {
+    try {
+      console.log("🚀 Trying Gemini fallback...");
+      const result = await callGeminiAPI(request);
+      return result;
+    } catch (error) {
+      console.warn("❌ Gemini fallback failed:", error.message);
+    }
+  }
+
+  // 3. Fallback to OpenRouter as last resort
+  if (OPENROUTER_API_KEY) {
+    try {
+      console.log("🚀 Trying OpenRouter fallback...");
+      const result = await callOpenRouterAPI(request);
+      return result;
+    } catch (error) {
+      console.error("❌ OpenRouter fallback failed:", error.message);
+    }
+  }
+
+  return {
+    response: "I'm sorry, I'm having trouble connecting to my AI engines. This could be due to invalid API keys or rate limits. Please check your configuration in the .env file.",
+    error: "All LLM providers failed"
+  };
 }
 
 /**
  * Upload files to Supabase and process them for RAG
  */
-async function uploadFilesToSupabase(uploadedFiles, workbenchId) {
+async function uploadFilesToSupabase(uploadedFiles) {
   const { supabase } = await import("../lib/supabase.js");
   const results = [];
 
@@ -564,7 +527,6 @@ async function uploadFilesToSupabase(uploadedFiles, workbenchId) {
         "workbench-files-upload",
         {
           body: {
-            workbenchId: workbenchId || null,
             file: {
               name: file.name,
               type: file.type,
@@ -594,14 +556,13 @@ async function uploadFilesToSupabase(uploadedFiles, workbenchId) {
 /**
  * Query RAG context from Supabase using vector search
  */
-async function queryRAGContext(query, workbenchId) {
+async function queryRAGContext(query) {
   try {
     const { supabase } = await import("../lib/supabase.js");
 
     const { data, error } = await supabase.functions.invoke("query_context", {
       body: {
         query: query,
-        workbenchId: workbenchId || null,
         limit: 5,
       },
     });
@@ -626,32 +587,7 @@ export async function callLLMWithFallback(request) {
 
   let combinedContext = request.context || "";
 
-  // 1. Process workbench files if provided (already have content)
-  if (request.workbench_files && request.workbench_files.length > 0) {
-    console.log(
-      "Adding workbench files context...",
-      request.workbench_files.length,
-      "files"
-    );
-
-    const workbenchContext = request.workbench_files
-      .map(
-        (f) =>
-          `\n--- Workbench File: ${f.name} ---\n${f.content}\n--- End of ${f.name} ---\n`
-      )
-      .join("\n");
-
-    if (workbenchContext.trim()) {
-      combinedContext +=
-        "\n\n=== Workbench Files Content ===\n" + workbenchContext;
-      console.log(
-        "Added workbench files context, length:",
-        workbenchContext.length
-      );
-    }
-  }
-
-  // 2. Process and upload files if provided
+  // 1. Process and upload files if provided
   if (request.uploaded_files && request.uploaded_files.length > 0) {
     console.log("Processing files for immediate context...");
 
@@ -796,149 +732,26 @@ export async function callLLMWithFallback(request) {
 
 
 /**
- * Detect if user query is a KPI-related request
- * @param {string} query - User's message
- * @returns {object} - { isKPIQuery: boolean, confidence: number, detectedKPIs: string[], categories: string[] }
- */
-export function detectKPIIntent(query) {
-  const lowerQuery = query.toLowerCase();
-  let confidence = 0;
-  const detectedKPIs = [];
-  const categories = new Set();
-
-  // Check for direct KPI keywords
-  for (const keyword of KPI_KEYWORDS) {
-    if (lowerQuery.includes(keyword)) {
-      confidence += 0.15;
-      if (keyword.length > 5) {
-        detectedKPIs.push(keyword);
-      }
-    }
-  }
-
-  // Check for category-specific keywords
-  for (const [category, keywords] of Object.entries(KPI_CATEGORY_KEYWORDS)) {
-    for (const keyword of keywords) {
-      if (lowerQuery.includes(keyword)) {
-        categories.add(category);
-        confidence += 0.1;
-      }
-    }
-  }
-
-  // Check for question patterns
-  const questionPatterns = [
-    /what('s| is| are) (the|my|our) .*(ratio|margin|profit|revenue|growth)/i,
-    /calculate .*(kpi|ratio|margin|profit)/i,
-    /show .*(metrics|kpi|financial|analysis)/i,
-    /analyze .*(financial|data|performance|health)/i,
-    /how (is|are) .*(performing|doing)/i,
-    /compute .*(ratio|margin|metric)/i,
-  ];
-
-  for (const pattern of questionPatterns) {
-    if (pattern.test(query)) {
-      confidence += 0.25;
-    }
-  }
-
-  // Cap confidence at 1.0
-  confidence = Math.min(confidence, 1.0);
-
-  return {
-    isKPIQuery: confidence >= 0.3,
-    confidence: confidence,
-    detectedKPIs: [...new Set(detectedKPIs)],
-    categories: [...categories],
-  };
-}
-
-/**
- * Parse user query to extract specific KPI requests
- * Uses LLM to understand natural language and map to KPI IDs
- * @param {string} query - User's message
- * @param {Array} availableKPIs - List of available KPI templates
- * @returns {Promise<object>} - { kpiIds: string[], filters: object, explanation: string }
- */
-export async function parseKPIQuery(query, availableKPIs) {
-  const prompt = `You are a financial analyst assistant. Analyze the user's query and determine which KPIs they want to see.
-
-User Query: "${query}"
-
-Available KPIs:
-${availableKPIs
-      .map((kpi) => `- ${kpi.id}: ${kpi.name} (${kpi.description})`)
-      .join("\n")}
-
-Respond in JSON format only:
-{
-  "kpi_ids": ["array of KPI IDs to compute"],
-  "filters": {
-    "start_date": "YYYY-MM-DD or null",
-    "end_date": "YYYY-MM-DD or null",
-    "dimension": "dimension value or null"
-  },
-  "explanation": "Brief explanation of what you understood from the query"
-}
-
-If the user wants all KPIs or a general overview, include all available KPI IDs.
-If uncertain about dates, leave them as null.`;
-
-  try {
-    const result = await callLLMDirectly({
-      query: prompt,
-      context: "",
-    });
-
-    // Parse the JSON response
-    const jsonMatch = result.response.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return {
-        kpiIds: parsed.kpi_ids || [],
-        filters: parsed.filters || {},
-        explanation: parsed.explanation || "",
-      };
-    }
-
-    // Fallback: return all KPIs
-    return {
-      kpiIds: availableKPIs.map((k) => k.id),
-      filters: {},
-      explanation: "Computing all available KPIs",
-    };
-  } catch (error) {
-    console.error("Error parsing KPI query:", error);
-    // Fallback: return all KPIs
-    return {
-      kpiIds: availableKPIs.map((k) => k.id),
-      filters: {},
-      explanation: "Computing all available KPIs",
-    };
-  }
-}
-
-/**
- * Generate a natural language response explaining KPI results
- * @param {Array} kpiResults - Array of computed KPI results
+ * Generate a natural language response explaining data results
+ * @param {Array} results - Array of computed results
  * @param {string} originalQuery - User's original query
  * @returns {Promise<string>} - Natural language explanation
  */
-export async function generateKPIExplanation(kpiResults, originalQuery) {
-  if (!kpiResults || kpiResults.length === 0) {
-    return "I couldn't compute any KPIs with the current data mapping. Please ensure your columns are mapped correctly.";
+export async function generateExplanation(results, originalQuery) {
+  if (!results || results.length === 0) {
+    return "I couldn't compute any results with the current data mapping. Please ensure your columns are mapped correctly.";
   }
 
-  const kpiSummary = kpiResults
-    .map((kpi) => {
+  const summary = results
+    .map((res) => {
       const value =
-        typeof kpi.value === "number" ? kpi.value.toFixed(2) : kpi.value;
-      return `- ${kpi.name}: ${value}${kpi.unit || ""}`;
+        typeof res.value === "number" ? res.value.toFixed(2) : res.value;
+      return `- ${res.name}: ${value}${res.unit || ""}`;
     })
     .join("\n");
 
   let systemPrompt = `You are Dabby, an expert Business Consultant AI and Data Analyst powered by Groq.
-You help users analyze their business data, KPIs, and uploaded documents to provide actionable insights.
+You help users analyze their business data and uploaded documents to provide actionable insights.
 
 Current Functionality:
 - You have access to real-time data ONLY via the Web Search tool if enabled.
@@ -951,8 +764,8 @@ Important Rules:
 
   const prompt = `${systemPrompt}\n\nYou are a financial analyst. The user asked: "${originalQuery}"
 
-Based on their data, here are the computed KPIs:
-${kpiSummary}
+Based on their data, here are the computed results:
+${summary}
 
 Provide a brief, insightful analysis of these results. Include:
 1. Key observations
@@ -969,7 +782,69 @@ Keep the response concise (2-3 paragraphs max) and use business-friendly languag
 
     return result.response;
   } catch (error) {
-    console.error("Error generating KPI explanation:", error);
-    return `Here are your computed KPIs:\n${kpiSummary}`;
+    console.error("Error generating explanation:", error);
+    return `Here are your computed results:\n${summary}`;
+  }
+}
+
+/**
+ * AI-powered Decision Intelligence Discovery
+ * Identifies Measures, Insights, and Business Questions instead of raw formulas.
+ */
+export async function discoverInsightsWithAI(headers, sampleData, fileName) {
+  const isTransposed = headers.length > 20 && sampleData.length < 5;
+  
+  const prompt = `
+    You are a Principal Product Engineer and FP&A Analyst. 
+    I have a file named "${fileName}".
+    
+    DATA STRUCTURE:
+    - Headers: ${headers.join(", ")}
+    - Sample data: ${JSON.stringify(sampleData, null, 2)}
+    - Orientation: ${isTransposed ? "Row-wise" : "Column-wise"}
+    
+    TASK:
+    Instead of calculating formulas, identify the "Decision Intelligence" layer for this business.
+    
+    1. Identify MEASURES (Atomic raw data points).
+    2. Suggest INSIGHTS (Time-aware aggregations like Total Sales Monthly).
+    3. Suggest INDICATORS (Behavioral trends like MoM Growth).
+    4. Define ANALYTICAL QUESTIONS (The high-level business health questions this data answers).
+
+    Response format (ONLY valid JSON):
+    {
+      "measures": [
+        { "id": "revenue", "name": "Revenue", "column": "Exact Header Name" }
+      ],
+      "insights": [
+        { "id": "total_revenue", "name": "Total Revenue", "measure": "revenue", "aggregation": "sum" }
+      ],
+      "indicators": [
+        { "id": "rev_growth", "name": "Revenue Growth", "insight": "total_revenue", "type": "growth" }
+      ],
+      "questions": [
+        {
+          "id": "sales_health",
+          "question": "Is our sales growth sustainable?",
+          "indicator": "rev_growth",
+          "thresholds": { "healthy": ">10", "watch": "0-10", "risk": "<0" }
+        }
+      ]
+    }
+  `;
+
+  try {
+    const result = await callLLMDirectly({
+      query: prompt,
+      context: "",
+    });
+
+    const jsonMatch = result.response.match(/\{[\s\S]*\}/);
+    const jsonStr = jsonMatch ? jsonMatch[0] : result.response;
+    
+    return JSON.parse(jsonStr);
+  } catch (error) {
+    console.error("Error in AI discovery:", error);
+    return null;
   }
 }

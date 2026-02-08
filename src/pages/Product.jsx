@@ -12,12 +12,12 @@ const features = [
         description: "Predict future performance based on historical data patterns",
     },
     {
-        title: "Automatic report generation",
-        description: "Generate comprehensive reports in seconds, not hours",
+        title: "Deep Insights from Documents",
+        description: "Extract meaningful information from financial PDFs and statements",
     },
     {
-        title: "Data visualization on demand",
-        description: "See your data come to life with intelligent charts and graphs",
+        title: "Context-Aware Intelligence",
+        description: "AI that understands your unique business context and goals",
     },
 ];
 
@@ -50,11 +50,11 @@ const capabilities = [
         ),
     },
     {
-        title: "Automated Reporting",
-        description: "Generate detailed PDF reports with a single click.",
+        title: "Document Analysis",
+        description: "Extract key insights and trends from complex financial documents.",
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 11-2 2z" />
             </svg>
         ),
     },
@@ -199,12 +199,6 @@ export default function Product() {
                                     </p>
                                     <p className="text-xs text-[#81E6D9]">● Online</p>
                                 </div>
-                                <button className={`ml-auto px-4 py-2 text-sm bg-[#81E6D9] text-black rounded-full font-medium border border-[#81E6D9] hover:bg-transparent transition-colors ${isDark
-                                        ? "hover:text-white hover:border-white"
-                                        : "hover:text-[#1a1a1a] hover:border-[#1a1a1a]"
-                                    }`}>
-                                    Generate Report
-                                </button>
                             </div>
 
                             {/* User Message */}
@@ -240,24 +234,18 @@ export default function Product() {
                                     </div>
 
                                     <p className={`text-sm mb-3 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                        The 18% growth is primarily driven by the new enterprise plan adoption. Would you like me to generate a detailed PDF report?
+                                        The 18% growth is primarily driven by the new enterprise plan adoption. Would you like me to analyze the specific cost drivers next?
                                     </p>
 
                                     {/* Action Buttons */}
                                     <div className="flex gap-2">
                                         <button className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${isDark ? "bg-white/10 text-white hover:bg-white/15" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                                             }`}>
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
-                                            Generate PDF
+                                            Analyze Costs
                                         </button>
                                         <button className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${isDark ? "bg-white/10 text-white hover:bg-white/15" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                                             }`}>
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                                            </svg>
-                                            Visualize Trend
+                                            View Forecast
                                         </button>
                                     </div>
                                 </div>

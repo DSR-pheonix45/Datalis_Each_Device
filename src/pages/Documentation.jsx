@@ -13,29 +13,29 @@ const docSections = [
     ],
   },
   {
-    title: "Data Modeling",
+    title: "Data Analysis",
     description:
-      "Learn how to map columns, normalize source data, and make it analytics-ready with Workbench templates.",
+      "Learn how to map columns, normalize source data, and make it analytics-ready for AI-driven insights.",
     topics: [
       "Column mapping best practices",
       "Versioning datasets",
-      "Validations & anomaly alerts",
+      "Data validation & cleansing",
     ],
   },
   {
     title: "AI Insights",
     description:
-      "Unlock natural-language querying, automated narratives, and KPI monitoring powered by our in-house models.",
+      "Unlock natural-language querying, automated narratives, and deep document analysis powered by our in-house models.",
     topics: [
       "Prompt library",
-      "Scheduling insight digests",
-      "Guardrails & approvals",
+      "Context-aware querying",
+      "Document extraction techniques",
     ],
   },
   {
     title: "Automation",
     description:
-      "Automate report delivery, escalate threshold breaches, and push data back into your apps.",
+      "Automate insight delivery, escalate threshold breaches, and push data back into your apps.",
     topics: [
       "Workflow builder",
       "Notifications & webhooks",

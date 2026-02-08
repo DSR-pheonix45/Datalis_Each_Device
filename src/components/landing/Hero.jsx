@@ -8,6 +8,11 @@ export default function Hero() {
   const containerRef = useRef(null);
   const { theme } = useTheme();
 
+  const isLocalhost = 
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1' || 
+    window.location.hostname === '';
+
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end start"],
@@ -89,7 +94,7 @@ export default function Hero() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10"
           >
             <Link
-              to="/maintenance"
+              to={isLocalhost ? "/signup" : "/maintenance"}
               onClick={() => track('try_datalis_free_clicked')}
               className={`inline-block px-10 py-4 text-base font-semibold text-black bg-[#81E6D9] rounded-full border border-[#81E6D9] hover:bg-transparent transition-all duration-200 ${theme === "dark"
                 ? "hover:text-white hover:border-white"
@@ -157,13 +162,13 @@ export default function Hero() {
                 }`}
             />
 
-            {/* KPIs count */}
+            {/* Insights count */}
             <div className="flex items-center gap-3">
               <span
                 className={`text-sm font-semibold ${theme === "dark" ? "text-white" : "text-[#1a1a1a]"
                   }`}
               >
-                Metrics
+                Insights
               </span>
               <div className="flex items-center gap-1">
                 <div className="flex">
@@ -251,9 +256,9 @@ export default function Hero() {
                     }`}
                 >
                   <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs rounded font-medium bg-[#81E6D9] text-black whitespace-nowrap">
-                    Dashboard
+                    Chat
                   </span>
-                  <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs whitespace-nowrap">Reports</span>
+                  <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs whitespace-nowrap">Analysis</span>
                   <span className="px-2 md:px-3 py-1 text-[10px] md:text-xs whitespace-nowrap">Dabby AI</span>
                 </div>
               </div>
@@ -286,20 +291,20 @@ export default function Hero() {
                   </div>
                 </div>
 
-                {/* Main Dashboard Area */}
+                {/* Main Analysis Area */}
                 <div className="flex-1 flex flex-col gap-3 overflow-hidden">
-                  {/* Top KPI Cards Row */}
+                  {/* Top Analysis Cards Row */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
                     {[
-                      { label: "Total Revenue", value: "₹730M", change: "+18%", positive: true },
-                      { label: "Net Profit", value: "₹142M", change: "+24%", positive: true },
-                      { label: "Expenses", value: "₹88M", change: "-5%", positive: true },
-                      { label: "Growth Rate", value: "32.4%", change: "+8%", positive: true }
-                    ].map((kpi, i) => (
+                      { label: "Revenue Analysis", value: "₹730M", change: "+18%", positive: true },
+                      { label: "Profit Insight", value: "₹142M", change: "+24%", positive: true },
+                      { label: "Expense Trends", value: "₹88M", change: "-5%", positive: true },
+                      { label: "Growth Insight", value: "32.4%", change: "+8%", positive: true }
+                    ].map((item, i) => (
                       <div key={i} className={`p-2 md:p-3 rounded-lg border ${theme === "dark" ? "bg-[#111111] border-white/5" : "bg-white border-[#1a1a1a]/10"}`}>
-                        <p className={`text-[8px] md:text-[10px] mb-0.5 md:mb-1 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}>{kpi.label}</p>
-                        <p className="text-sm md:text-lg font-bold text-[#81E6D9]">{kpi.value}</p>
-                        <p className={`text-[8px] md:text-[10px] ${kpi.positive ? "text-green-400" : "text-red-400"}`}>{kpi.change}</p>
+                        <p className={`text-[8px] md:text-[10px] mb-0.5 md:mb-1 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}>{item.label}</p>
+                        <p className="text-sm md:text-lg font-bold text-[#81E6D9]">{item.value}</p>
+                        <p className={`text-[8px] md:text-[10px] ${item.positive ? "text-green-400" : "text-red-400"}`}>{item.change}</p>
                       </div>
                     ))}
                   </div>
@@ -344,9 +349,9 @@ export default function Hero() {
                       <span className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}>Recent Activity</span>
                       <div className="mt-2 space-y-2">
                         {[
-                          { title: "Q4 Report Generated", time: "2m ago", icon: "📄" },
-                          { title: "New forecast updated", time: "15m ago", icon: "📈" },
-                          { title: "Team review completed", time: "1h ago", icon: "✓" }
+                          { title: "Q4 Analysis Completed", time: "2m ago", icon: "📄" },
+                          { title: "New insight discovered", time: "15m ago", icon: "📈" },
+                          { title: "Team analysis reviewed", time: "1h ago", icon: "✓" }
                         ].map((item, i) => (
                           <div key={i} className={`flex items-center gap-2 p-2 rounded ${theme === "dark" ? "bg-white/5" : "bg-gray-50"}`}>
                             <span className="text-sm">{item.icon}</span>

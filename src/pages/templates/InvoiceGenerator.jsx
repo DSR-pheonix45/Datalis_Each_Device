@@ -5,16 +5,16 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Download, Plus, Trash2, Globe } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle } from "docx";
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, ImageRun } from "docx";
 import { saveAs } from "file-saver";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Upload, X } from "lucide-react";
 
 const REGIONS = {
   INDIA: {
     label: "India",
     taxLabel: "GST",
     currency: "INR",
-    symbol: "₹",
+    symbol: "Rs. ",
     fields: ["gstin", "cin"],
     defaultTax: 18
   },
@@ -68,6 +68,9 @@ export default function InvoiceGenerator() {
     items: [{ description: "", quantity: 1, price: 0 }],
     notes: "",
     taxRate: REGIONS.INDIA.defaultTax,
+    logo: null,
+    letterhead: null,
+    footer: null,
   });
 
   // Update tax rate when region changes
@@ -81,6 +84,31 @@ export default function InvoiceGenerator() {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setInvoiceData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageUpload = (e, type) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setInvoiceData(prev => ({ ...prev, [type]: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = (type) => {
+    setInvoiceData(prev => ({ ...prev, [type]: null }));
+  };
+
+  const base64ToUint8Array = (base64) => {
+    const binaryString = window.atob(base64.split(',')[1]);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
   };
 
   const handleItemChange = (index, e) => {
@@ -121,36 +149,54 @@ export default function InvoiceGenerator() {
     const total = calculateTotal();
     const currentRegion = REGIONS[region];
     const symbol = currentRegion.symbol;
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
 
     // Professional Colors
     const primaryColor = [0, 71, 171]; // Deep Blue
-    const accentColor = [129, 230, 217]; // Teal from UI
     const textColor = [33, 33, 33];
     const lightGrey = [128, 128, 128];
 
-    // Header Bar
-    doc.setFillColor(...primaryColor);
-    doc.rect(0, 0, 210, 40, 'F');
-    
-    // Title
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
-    doc.setFont("helvetica", "bold");
-    doc.text("INVOICE", 105, 25, { align: "center" });
+    let currentY = 10;
+
+    // Letterhead
+    if (invoiceData.letterhead) {
+      doc.addImage(invoiceData.letterhead, 'PNG', 0, 0, pageWidth, 40);
+      currentY = 45;
+    } else {
+      // Default Header Bar
+      doc.setFillColor(...primaryColor);
+      doc.rect(0, 0, pageWidth, 40, 'F');
+      
+      // Title
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text("INVOICE", pageWidth / 2, 25, { align: "center" });
+      currentY = 50;
+    }
+
+    // Logo (if exists and no letterhead, or maybe always?)
+    if (invoiceData.logo && !invoiceData.letterhead) {
+      doc.addImage(invoiceData.logo, 'PNG', 20, 10, 30, 20);
+    }
 
     // Invoice Info (Top Right)
+    doc.setTextColor(invoiceData.letterhead ? 0 : 255);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Invoice #: ${invoiceData.invoiceNumber}`, 190, 15, { align: "right" });
-    doc.text(`Date: ${invoiceData.date}`, 190, 22, { align: "right" });
-    if (invoiceData.dueDate) doc.text(`Due Date: ${invoiceData.dueDate}`, 190, 29, { align: "right" });
+    const infoY = invoiceData.letterhead ? 45 : 15;
+    const infoX = pageWidth - 20;
+    
+    doc.text(`Invoice #: ${invoiceData.invoiceNumber}`, infoX, infoY, { align: "right" });
+    doc.text(`Date: ${invoiceData.date}`, infoX, infoY + 7, { align: "right" });
+    if (invoiceData.dueDate) doc.text(`Due Date: ${invoiceData.dueDate}`, infoX, infoY + 14, { align: "right" });
 
-    // Reset Text Color
+    // Reset Text Color for Body
     doc.setTextColor(...textColor);
+    if (invoiceData.letterhead) currentY = 65;
 
     // Layout Columns
-    let currentY = 55;
-    
     // Left Column: From
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
@@ -178,7 +224,9 @@ export default function InvoiceGenerator() {
     }
 
     // Right Column: Bill To
-    let rightY = 55;
+    let rightY = invoiceData.letterhead ? 65 : 55;
+    if (!invoiceData.letterhead && currentY < 55) currentY = 55; // Ensure alignment if header bar is used
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text("BILL TO", 120, rightY);
@@ -203,8 +251,8 @@ export default function InvoiceGenerator() {
     const tableData = invoiceData.items.map(item => [
       item.description,
       item.quantity.toString(),
-      `${symbol}${item.price.toFixed(2)}`,
-      `${symbol}${(item.quantity * item.price).toFixed(2)}`
+      `${symbol}${item.price.toLocaleString(region === 'INDIA' ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      `${symbol}${(item.quantity * item.price).toLocaleString(region === 'INDIA' ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     ]);
 
     autoTable(doc, {
@@ -238,20 +286,24 @@ export default function InvoiceGenerator() {
     
     // Subtotal
     doc.text("Subtotal:", 140, finalY);
-    doc.text(`${symbol}${subtotal.toFixed(2)}`, 190, finalY, { align: "right" });
+    doc.text(`${symbol}${subtotal.toLocaleString(region === 'INDIA' ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 190, finalY, { align: "right" });
     
     // Tax
     finalY += 7;
     doc.text(`${currentRegion.taxLabel} (${invoiceData.taxRate}%):`, 140, finalY);
-    doc.text(`${symbol}${tax.toFixed(2)}`, 190, finalY, { align: "right" });
+    doc.text(`${symbol}${tax.toLocaleString(region === 'INDIA' ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 190, finalY, { align: "right" });
     
     // Total
     finalY += 10;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.setTextColor(...primaryColor);
-    doc.text("Total Amount:", 140, finalY);
-    doc.text(`${symbol}${total.toFixed(2)}`, 190, finalY, { align: "right" });
+    doc.setFillColor(...primaryColor);
+    // Box for the total amount
+    doc.rect(130, finalY - 7, 70, 11, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.text("Grand Total:", 135, finalY);
+    // Aligning the amount with the column total above
+    doc.text(`${symbol}${total.toLocaleString(region === 'INDIA' ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 190, finalY, { align: "right" });
 
     // Notes
     if (invoiceData.notes) {
@@ -262,16 +314,17 @@ export default function InvoiceGenerator() {
       doc.text("Notes:", 20, finalY);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
-      doc.text(invoiceData.notes, 20, finalY + 7, { maxWidth: 100 });
+      doc.text(invoiceData.notes, 20, finalY + 7, { maxWidth: 170 });
     }
 
-    // Add Branding
-    const pageHeight = doc.internal.pageSize.height;
-    const pageWidth = doc.internal.pageSize.width;
-    doc.setFontSize(9);
-    doc.setTextColor(...lightGrey);
-    doc.setFont("helvetica", "italic");
-    doc.text("Created with Dabby - Your AI Business Assistant", pageWidth - 20, pageHeight - 10, { align: "right" });
+    // Add Branding / Footer
+    if (invoiceData.footer) {
+      doc.addImage(invoiceData.footer, 'PNG', 0, pageHeight - 30, pageWidth, 30);
+    } else {
+      doc.setFontSize(9);
+      doc.setTextColor(150, 150, 150);
+      doc.text("Professional Document Generated via Dabby", pageWidth / 2, pageHeight - 10, { align: "center" });
+    }
 
     doc.save(`Invoice_${invoiceData.invoiceNumber}.pdf`);
   };
@@ -283,166 +336,222 @@ export default function InvoiceGenerator() {
     const currentRegion = REGIONS[region];
     const symbol = currentRegion.symbol;
 
+    const children = [];
+
+    // Letterhead
+    if (invoiceData.letterhead) {
+      children.push(
+        new Paragraph({
+          children: [
+            new ImageRun({
+              data: base64ToUint8Array(invoiceData.letterhead),
+              transformation: { width: 600, height: 100 },
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+        })
+      );
+    } else {
+      // Default Header Bar
+      children.push(
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: BorderStyle.NONE,
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  shading: { fill: "0047AB" },
+                  margins: { top: 400, bottom: 400, left: 400, right: 400 },
+                  children: [
+                    new Paragraph({
+                      children: [
+                        ...(invoiceData.logo ? [
+                          new ImageRun({
+                            data: base64ToUint8Array(invoiceData.logo),
+                            transformation: { width: 50, height: 50 },
+                          }),
+                          new TextRun({ text: "  ", size: 48 }),
+                        ] : []),
+                        new TextRun({ text: "INVOICE", bold: true, size: 48, color: "FFFFFF" }),
+                      ],
+                      alignment: AlignmentType.CENTER,
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        })
+      );
+    }
+
+    children.push(new Paragraph({ text: "", spacing: { before: 400 } }));
+
+    // Top Info (Invoice # and Date)
+    children.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: BorderStyle.NONE,
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({ children: [] }), // Empty left
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    children: [
+                      new TextRun({ text: `Invoice #: ${invoiceData.invoiceNumber}`, bold: true, size: 20 }),
+                    ],
+                    alignment: AlignmentType.RIGHT,
+                  }),
+                  new Paragraph({
+                    children: [
+                      new TextRun({ text: `Date: ${invoiceData.date}`, size: 18 }),
+                    ],
+                    alignment: AlignmentType.RIGHT,
+                  }),
+                  new Paragraph({
+                    children: [
+                      new TextRun({ text: `Region: ${currentRegion.label}`, size: 18 }),
+                    ],
+                    alignment: AlignmentType.RIGHT,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      })
+    );
+
+    children.push(new Paragraph({ text: "", spacing: { before: 600 } }));
+
+    // From / Bill To Section
+    children.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: BorderStyle.NONE,
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({
+                width: { size: 50, type: WidthType.PERCENTAGE },
+                children: [
+                  new Paragraph({ children: [new TextRun({ text: "FROM", bold: true, size: 22, color: "0047AB" })] }),
+                  new Paragraph({ children: [new TextRun({ text: invoiceData.senderName || "Your Business", bold: true, size: 20 })] }),
+                  new Paragraph({ children: [new TextRun({ text: invoiceData.senderEmail || "your@email.com", color: "808080", size: 18 })] }),
+                  new Paragraph({ children: [new TextRun({ text: invoiceData.senderAddress || "Your Address", size: 18 })] }),
+                  ...(region === "INDIA" ? [
+                    new Paragraph({ children: [new TextRun({ text: `GSTIN: ${invoiceData.senderGstin}`, size: 18 })] }),
+                    new Paragraph({ children: [new TextRun({ text: `CIN: ${invoiceData.senderCin}`, size: 18 })] }),
+                  ] : []),
+                ],
+              }),
+              new TableCell({
+                width: { size: 50, type: WidthType.PERCENTAGE },
+                children: [
+                  new Paragraph({ children: [new TextRun({ text: "BILL TO", bold: true, size: 22, color: "0047AB" })] }),
+                  new Paragraph({ children: [new TextRun({ text: invoiceData.clientName || "Client Name", bold: true, size: 20 })] }),
+                  new Paragraph({ children: [new TextRun({ text: invoiceData.clientEmail || "client@email.com", color: "808080", size: 18 })] }),
+                  new Paragraph({ children: [new TextRun({ text: invoiceData.clientAddress || "Client Address", size: 18 })] }),
+                  ...(region === "INDIA" && invoiceData.clientGstin ? [
+                    new Paragraph({ children: [new TextRun({ text: `GSTIN: ${invoiceData.clientGstin}`, size: 18 })] }),
+                  ] : []),
+                ],
+              }),
+            ],
+          }),
+        ],
+      })
+    );
+
+    children.push(new Paragraph({ text: "", spacing: { before: 600 } }));
+
+    // Items Table
+    children.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [
+          new TableRow({
+            tableHeader: true,
+            children: [
+              new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Description", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Quantity", bold: true, color: "FFFFFF" })] }),], alignment: AlignmentType.CENTER }),
+              new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: `Price (${symbol.trim()})`, bold: true, color: "FFFFFF" })] }),], alignment: AlignmentType.RIGHT }),
+              new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: `Total (${symbol.trim()})`, bold: true, color: "FFFFFF" })] }),], alignment: AlignmentType.RIGHT }),
+            ],
+          }),
+          ...invoiceData.items.map(item => new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph(item.description)] }),
+              new TableCell({ children: [new Paragraph(item.quantity.toString())], alignment: AlignmentType.CENTER }),
+              new TableCell({ children: [new Paragraph(`${symbol}${item.price.toLocaleString(region === 'INDIA' ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)], alignment: AlignmentType.RIGHT }),
+              new TableCell({ children: [new Paragraph(`${symbol}${(item.quantity * item.price).toLocaleString(region === 'INDIA' ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)], alignment: AlignmentType.RIGHT }),
+            ],
+          })),
+        ],
+      })
+    );
+
+    children.push(new Paragraph({ text: "", spacing: { before: 600 } }));
+
+    // Totals
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: `Subtotal: ${symbol}${subtotal.toLocaleString(region === 'INDIA' ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, size: 20 }),
+        ],
+        alignment: AlignmentType.RIGHT,
+      })
+    );
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: `${currentRegion.taxLabel} (${invoiceData.taxRate}%): ${symbol}${tax.toLocaleString(region === 'INDIA' ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, size: 20 }),
+        ],
+        alignment: AlignmentType.RIGHT,
+      })
+    );
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: `Total Amount: ${symbol}${total.toLocaleString(region === 'INDIA' ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bold: true, size: 24, color: "0047AB" }),
+        ],
+        alignment: AlignmentType.RIGHT,
+      })
+    );
+
+    children.push(new Paragraph({ text: "", spacing: { before: 1200 } }));
+
+    // Footer
+    if (invoiceData.footer) {
+      children.push(
+        new Paragraph({
+          children: [
+            new ImageRun({
+              data: base64ToUint8Array(invoiceData.footer),
+              transformation: { width: 600, height: 80 },
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+        })
+      );
+    } else {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Professional Document Generated via Dabby", color: "808080", size: 18, italic: true }),
+          ],
+          alignment: AlignmentType.CENTER,
+        })
+      );
+    }
+
     const doc = new Document({
       sections: [{
         properties: {},
-        children: [
-          // Header with background color (simulated with a table)
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            borders: BorderStyle.NONE,
-            rows: [
-              new TableRow({
-                children: [
-                  new TableCell({
-                    shading: { fill: "0047AB" },
-                    margins: { top: 400, bottom: 400, left: 400, right: 400 },
-                    children: [
-                      new Paragraph({
-                        children: [
-                          new TextRun({ text: "INVOICE", bold: true, size: 48, color: "FFFFFF" }),
-                        ],
-                        alignment: AlignmentType.CENTER,
-                      }),
-                    ],
-                  }),
-                ],
-              }),
-            ],
-          }),
-
-          new Paragraph({ text: "", spacing: { before: 400 } }),
-
-          // Top Info (Invoice # and Date)
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            borders: BorderStyle.NONE,
-            rows: [
-              new TableRow({
-                children: [
-                  new TableCell({ children: [] }), // Empty left
-                  new TableCell({
-                    children: [
-                      new Paragraph({
-                        children: [
-                          new TextRun({ text: `Invoice #: ${invoiceData.invoiceNumber}`, bold: true, size: 20 }),
-                        ],
-                        alignment: AlignmentType.RIGHT,
-                      }),
-                      new Paragraph({
-                        children: [
-                          new TextRun({ text: `Date: ${invoiceData.date}`, size: 18 }),
-                        ],
-                        alignment: AlignmentType.RIGHT,
-                      }),
-                      new Paragraph({
-                        children: [
-                          new TextRun({ text: `Region: ${currentRegion.label}`, size: 18 }),
-                        ],
-                        alignment: AlignmentType.RIGHT,
-                      }),
-                    ],
-                  }),
-                ],
-              }),
-            ],
-          }),
-
-          new Paragraph({ text: "", spacing: { before: 600 } }),
-
-          // From / Bill To Section
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            borders: BorderStyle.NONE,
-            rows: [
-              new TableRow({
-                children: [
-                  new TableCell({
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    children: [
-                      new Paragraph({ children: [new TextRun({ text: "FROM", bold: true, size: 22, color: "0047AB" })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.senderName || "Your Business", bold: true, size: 20 })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.senderEmail || "your@email.com", color: "808080", size: 18 })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.senderAddress || "Your Address", size: 18 })] }),
-                      ...(region === "INDIA" ? [
-                        new Paragraph({ children: [new TextRun({ text: `GSTIN: ${invoiceData.senderGstin}`, size: 18 })] }),
-                        new Paragraph({ children: [new TextRun({ text: `CIN: ${invoiceData.senderCin}`, size: 18 })] }),
-                      ] : []),
-                    ],
-                  }),
-                  new TableCell({
-                    width: { size: 50, type: WidthType.PERCENTAGE },
-                    children: [
-                      new Paragraph({ children: [new TextRun({ text: "BILL TO", bold: true, size: 22, color: "0047AB" })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.clientName || "Client Name", bold: true, size: 20 })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.clientEmail || "client@email.com", color: "808080", size: 18 })] }),
-                      new Paragraph({ children: [new TextRun({ text: invoiceData.clientAddress || "Client Address", size: 18 })] }),
-                      ...(region === "INDIA" && invoiceData.clientGstin ? [
-                        new Paragraph({ children: [new TextRun({ text: `GSTIN: ${invoiceData.clientGstin}`, size: 18 })] }),
-                      ] : []),
-                    ],
-                  }),
-                ],
-              }),
-            ],
-          }),
-
-          new Paragraph({ text: "", spacing: { before: 600 } }),
-
-          // Items Table
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [
-              new TableRow({
-                tableHeader: true,
-                children: [
-                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Description", bold: true, color: "FFFFFF" })] })] }),
-                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Quantity", bold: true, color: "FFFFFF" })] }),], alignment: AlignmentType.CENTER }),
-                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Price", bold: true, color: "FFFFFF" })] }),], alignment: AlignmentType.RIGHT }),
-                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Total", bold: true, color: "FFFFFF" })] }),], alignment: AlignmentType.RIGHT }),
-                ],
-              }),
-              ...invoiceData.items.map(item => new TableRow({
-                children: [
-                  new TableCell({ children: [new Paragraph(item.description)] }),
-                  new TableCell({ children: [new Paragraph(item.quantity.toString())], alignment: AlignmentType.CENTER }),
-                  new TableCell({ children: [new Paragraph(`${symbol}${item.price.toFixed(2)}`)], alignment: AlignmentType.RIGHT }),
-                  new TableCell({ children: [new Paragraph(`${symbol}${(item.quantity * item.price).toFixed(2)}`)], alignment: AlignmentType.RIGHT }),
-                ],
-              })),
-            ],
-          }),
-
-          new Paragraph({ text: "", spacing: { before: 600 } }),
-
-          // Totals
-          new Paragraph({
-            children: [
-              new TextRun({ text: `Subtotal: ${symbol}${subtotal.toFixed(2)}`, size: 20 }),
-            ],
-            alignment: AlignmentType.RIGHT,
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: `${currentRegion.taxLabel} (${invoiceData.taxRate}%): ${symbol}${tax.toFixed(2)}`, size: 20 }),
-            ],
-            alignment: AlignmentType.RIGHT,
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: `Total Amount: ${symbol}${total.toFixed(2)}`, bold: true, size: 24, color: "0047AB" }),
-            ],
-            alignment: AlignmentType.RIGHT,
-          }),
-          
-          new Paragraph({ text: "", spacing: { before: 800 } }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: "Created with Dabby - Your AI Business Assistant", italic: true, color: "808080", size: 18 }),
-            ],
-            alignment: AlignmentType.RIGHT,
-          }),
-        ],
+        children: children,
       }],
     });
 
@@ -529,6 +638,81 @@ export default function InvoiceGenerator() {
                   {value.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Branding Section */}
+          <div className="mb-12">
+            <h2 className="text-lg font-semibold border-b pb-2 mb-6">Branding (Optional)</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Logo Upload */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium opacity-70">Company Logo</label>
+                <div className={`relative h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${
+                  invoiceData.logo ? "border-[#81E6D9] bg-[#81E6D9]/5" : "border-white/10 hover:border-white/30"
+                }`}>
+                  {invoiceData.logo ? (
+                    <>
+                      <img src={invoiceData.logo} alt="Logo" className="h-20 object-contain" />
+                      <button onClick={() => removeImage('logo')} className="absolute top-2 right-2 p-1 bg-red-500 rounded-full text-white hover:bg-red-600">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-6 h-6 mb-2 opacity-50" />
+                      <span className="text-xs opacity-50">Upload Logo</span>
+                      <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Letterhead Upload */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium opacity-70">Letterhead (Top)</label>
+                <div className={`relative h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${
+                  invoiceData.letterhead ? "border-[#81E6D9] bg-[#81E6D9]/5" : "border-white/10 hover:border-white/30"
+                }`}>
+                  {invoiceData.letterhead ? (
+                    <>
+                      <img src={invoiceData.letterhead} alt="Letterhead" className="h-20 object-contain" />
+                      <button onClick={() => removeImage('letterhead')} className="absolute top-2 right-2 p-1 bg-red-500 rounded-full text-white hover:bg-red-600">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-6 h-6 mb-2 opacity-50" />
+                      <span className="text-xs opacity-50">Upload Letterhead</span>
+                      <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'letterhead')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer Upload */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium opacity-70">Footer Image (Bottom)</label>
+                <div className={`relative h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${
+                  invoiceData.footer ? "border-[#81E6D9] bg-[#81E6D9]/5" : "border-white/10 hover:border-white/30"
+                }`}>
+                  {invoiceData.footer ? (
+                    <>
+                      <img src={invoiceData.footer} alt="Footer" className="h-20 object-contain" />
+                      <button onClick={() => removeImage('footer')} className="absolute top-2 right-2 p-1 bg-red-500 rounded-full text-white hover:bg-red-600">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-6 h-6 mb-2 opacity-50" />
+                      <span className="text-xs opacity-50">Upload Footer</span>
+                      <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'footer')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

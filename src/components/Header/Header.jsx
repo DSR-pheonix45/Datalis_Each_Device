@@ -1,39 +1,37 @@
 import React, { useState } from "react";
 import {
   BsThreeDots,
-  BsDownload,
   BsGear,
   BsBoxArrowRight,
+  BsBuilding,
 } from "react-icons/bs";
 import { HiChevronDown } from "react-icons/hi";
-import ReportModal from "../ReportModal/ReportModal";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 export default function Header({
   companies = [],
-  workbenches = [],
-  userCredits = 100,
-  onGenerateReport,
-  isReportModalOpen,
-  setIsReportModalOpen,
   onMobileMenuClick,
 }) {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const handleReportBuilderClick = () => {
-    // We allow opening the modal for everyone now
-    // The modal itself will handle the plan restriction with a marketing message
-    setIsReportModalOpen(true);
-  };
+  // Use real companies from props if available, otherwise fallback to empty array
+  const organizations = companies.length > 0 
+    ? companies.map(c => ({ id: c.company_id, name: c.company_name }))
+    : [];
+  
+  const [selectedOrg, setSelectedOrg] = useState(null);
 
-  const handleGenerateReport = (reportData) => {
-    onGenerateReport?.(reportData);
-    setIsReportModalOpen(false);
-  };
+  // Sync selectedOrg with organizations when they load
+  React.useEffect(() => {
+    if (organizations.length > 0 && !selectedOrg) {
+      setSelectedOrg(organizations[0]);
+    }
+  }, [organizations, selectedOrg]);
 
   return (
     <>
@@ -76,6 +74,59 @@ export default function Header({
           <div className="flex items-center space-x-2 sm:space-x-4">
             {/* Unified Action Toolbar - Responsive */}
             <div className="hidden sm:flex items-center p-1 bg-white/5 border border-white/10 rounded-lg">
+              {/* Organization Dropdown */}
+              <div className="relative border-r border-white/10 pr-1 hidden lg:block">
+                <button
+                  onClick={() => setIsOrgDropdownOpen(!isOrgDropdownOpen)}
+                  className="flex items-center space-x-2 px-3 py-1.5 hover:bg-white/5 rounded-md text-white transition-all font-dm-sans"
+                >
+                  <BsBuilding className="text-teal-400 text-xs" />
+                  <span className="text-sm font-medium">
+                    {selectedOrg ? selectedOrg.name : "Select Org"}
+                  </span>
+                  <HiChevronDown className="text-gray-500" />
+                </button>
+
+                {isOrgDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-56 bg-[#0a0a0a] rounded-lg shadow-xl border border-white/10 z-50 p-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                      Select Organisation
+                    </div>
+                    {organizations.map((org) => (
+                      <button
+                        key={org.id}
+                        onClick={() => {
+                          setSelectedOrg(org);
+                          setIsOrgDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-colors ${
+                          selectedOrg?.id === org.id
+                            ? "bg-teal-500/10 text-teal-400"
+                            : "text-gray-400 hover:bg-white/5 hover:text-white"
+                        }`}
+                      >
+                        <span className="text-sm font-medium">{org.name}</span>
+                        {selectedOrg?.id === org.id && (
+                          <div className="w-1 h-1 bg-teal-400 rounded-full shadow-[0_0_8px_rgba(20,184,166,0.5)]"></div>
+                        )}
+                      </button>
+                    ))}
+                    <div className="border-t border-white/5 mt-1 pt-1">
+                      <button
+                        onClick={() => {
+                          navigate("/dashboard/settings");
+                          setIsOrgDropdownOpen(false);
+                        }}
+                        className="w-full flex items-center space-x-2 px-3 py-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-md transition-colors"
+                      >
+                        <BsGear className="text-xs" />
+                        <span className="text-xs">Manage Organisations</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Agent Dropdown - Hidden on mobile */}
               <div className="relative border-r border-white/10 pr-1 hidden md:block">
                 <button
@@ -98,26 +149,8 @@ export default function Header({
                   </div>
                 )}
               </div>
-
-              {/* Generate Report Button */}
-              <button
-                onClick={handleReportBuilderClick}
-                className="flex items-center space-x-2 px-3 sm:px-4 py-1.5 ml-1 text-teal-400 hover:text-white hover:bg-teal-500/10 rounded-md transition-all font-medium whitespace-nowrap group"
-              >
-                <BsDownload className="text-sm" />
-                <span className="text-sm hidden sm:inline">Generate Report</span>
-              </button>
             </div>
             
-            {/* Mobile Report Button - Icon only */}
-            <button
-              onClick={handleReportBuilderClick}
-              className="sm:hidden p-2 text-teal-400 hover:text-white hover:bg-teal-500/10 rounded-lg transition-all"
-              aria-label="Generate Report"
-            >
-              <BsDownload className="text-lg" />
-            </button>
-
             {/* Overflow Menu */}
             <div className="relative">
               <button
@@ -157,16 +190,6 @@ export default function Header({
           </div>
         </div>
       </div>
-
-      {/* Report Modal */}
-      <ReportModal
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-        companies={companies}
-        workbenches={workbenches}
-        userCredits={userCredits}
-        onGenerateReport={handleGenerateReport}
-      />
     </>
   );
 }

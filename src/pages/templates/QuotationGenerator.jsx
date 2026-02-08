@@ -2,10 +2,10 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "../../context/ThemeContext";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Download, Plus, Trash2, Globe, ChevronDown } from "lucide-react";
+import { ArrowLeft, Download, Plus, Trash2, Globe, ChevronDown, Upload, X } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle } from "docx";
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, ImageRun } from "docx";
 import { saveAs } from "file-saver";
 
 export default function QuotationGenerator() {
@@ -26,9 +26,37 @@ export default function QuotationGenerator() {
     items: [{ description: "", quantity: 1, price: 0 }],
     notes: "",
     taxRate: 18,
+    logo: null,
+    letterhead: null,
+    footer: null,
   });
 
   const [showExportMenu, setShowExportMenu] = useState(false);
+
+  const handleImageUpload = (e, type) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setQuotationData(prev => ({ ...prev, [type]: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = (type) => {
+    setQuotationData(prev => ({ ...prev, [type]: null }));
+  };
+
+  const base64ToUint8Array = (base64) => {
+    const base64String = base64.split(',')[1];
+    const binaryString = atob(base64String);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -71,51 +99,70 @@ export default function QuotationGenerator() {
     const subtotal = calculateSubtotal();
     const tax = calculateTax();
     const total = calculateTotal();
-    const symbol = "₹";
+    const symbol = "Rs. ";
     const primaryColor = [0, 71, 171]; // Royal Blue
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
 
-    // Header Bar
-    doc.setFillColor(...primaryColor);
-    doc.rect(0, 0, 210, 40, 'F');
+    let currentY = 0;
 
-    // Title
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
-    doc.setFont("helvetica", "bold");
-    doc.text("QUOTATION", 105, 25, { align: "center" });
+    // Header / Letterhead
+    if (quotationData.letterhead) {
+      doc.addImage(quotationData.letterhead, 'PNG', 0, 0, pageWidth, 40);
+      currentY = 45;
+    } else {
+      doc.setFillColor(...primaryColor);
+      doc.rect(0, 0, pageWidth, 40, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text("QUOTATION", pageWidth / 2, 25, { align: "center" });
+      currentY = 50;
+    }
+
+    // Logo
+    if (quotationData.logo) {
+      doc.addImage(quotationData.logo, 'PNG', 20, currentY, 30, 30);
+      currentY += 35;
+    }
 
     // Document Info
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(`Quotation #:`, 20, 55);
+    doc.text(`Quotation #:`, 20, currentY);
     doc.setFont("helvetica", "normal");
-    doc.text(quotationData.quotationNumber, 45, 55);
+    doc.text(quotationData.quotationNumber, 45, currentY);
 
     doc.setFont("helvetica", "bold");
-    doc.text(`Date:`, 20, 62);
+    doc.text(`Date:`, 20, currentY + 7);
     doc.setFont("helvetica", "normal");
-    doc.text(quotationData.date, 45, 62);
+    doc.text(quotationData.date, 45, currentY + 7);
 
     if (quotationData.expiryDate) {
       doc.setFont("helvetica", "bold");
-      doc.text(`Valid Until:`, 20, 69);
+      doc.text(`Valid Until:`, 20, currentY + 14);
       doc.setFont("helvetica", "normal");
-      doc.text(quotationData.expiryDate, 45, 69);
+      doc.text(quotationData.expiryDate, 45, currentY + 14);
+      currentY += 25;
+    } else {
+      currentY += 18;
     }
 
     // Section Headers
     doc.setFillColor(240, 240, 240);
-    doc.rect(20, 80, 80, 8, 'F');
-    doc.rect(110, 80, 80, 8, 'F');
+    doc.rect(20, currentY, 80, 8, 'F');
+    doc.rect(110, currentY, 80, 8, 'F');
     
     doc.setFont("helvetica", "bold");
-    doc.text("FROM", 25, 86);
-    doc.text("FOR CLIENT", 115, 86);
+    doc.text("FROM", 25, currentY + 6);
+    doc.text("FOR CLIENT", 115, currentY + 6);
+
+    currentY += 15;
 
     // Details
     doc.setFont("helvetica", "normal");
-    let senderY = 95;
+    let senderY = currentY;
     doc.text(quotationData.senderName || "Your Name", 20, senderY);
     senderY += 6;
     doc.text(quotationData.senderEmail || "your@email.com", 20, senderY);
@@ -128,7 +175,7 @@ export default function QuotationGenerator() {
     doc.text(senderAddrLines, 20, senderY);
     senderY += (senderAddrLines.length * 6);
 
-    let clientY = 95;
+    let clientY = currentY;
     doc.text(quotationData.clientName || "Client Name", 110, clientY);
     clientY += 6;
     doc.text(quotationData.clientEmail || "client@email.com", 110, clientY);
@@ -146,8 +193,8 @@ export default function QuotationGenerator() {
     const tableData = quotationData.items.map(item => [
       item.description,
       item.quantity.toString(),
-      `${symbol}${item.price.toFixed(2)}`,
-      `${symbol}${(item.quantity * item.price).toFixed(2)}`
+      `${symbol}${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      `${symbol}${(item.quantity * item.price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     ]);
 
     autoTable(doc, {
@@ -170,20 +217,23 @@ export default function QuotationGenerator() {
     // Totals Section
     doc.setFont("helvetica", "normal");
     doc.text("Subtotal:", 140, finalY);
-    doc.text(`${symbol}${subtotal.toFixed(2)}`, 190, finalY, { align: "right" });
+    doc.text(`${symbol}${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 190, finalY, { align: "right" });
     
     finalY += 7;
     doc.text(`GST (${quotationData.taxRate}%):`, 140, finalY);
-    doc.text(`${symbol}${tax.toFixed(2)}`, 190, finalY, { align: "right" });
+    doc.text(`${symbol}${tax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 190, finalY, { align: "right" });
     
+    // Total Amount Box
     finalY += 10;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.setFillColor(...primaryColor);
-    doc.rect(135, finalY - 6, 60, 10, 'F');
+    // Box for the total amount
+    doc.rect(130, finalY - 7, 70, 11, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.text("Total Amount:", 140, finalY);
-    doc.text(`${symbol}${total.toFixed(2)}`, 190, finalY, { align: "right" });
+    doc.text("Total Amount:", 135, finalY);
+    // Aligning the amount with the column total above
+    doc.text(`${symbol}${total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 190, finalY, { align: "right" });
 
     if (quotationData.notes) {
       doc.setTextColor(0, 0, 0);
@@ -198,11 +248,13 @@ export default function QuotationGenerator() {
     }
 
     // Footer Branding
-    const pageHeight = doc.internal.pageSize.height;
-    const pageWidth = doc.internal.pageSize.width;
-    doc.setFontSize(9);
-    doc.setTextColor(150, 150, 150);
-    doc.text("Professional Document Generated via Dabby", pageWidth / 2, pageHeight - 10, { align: "center" });
+    if (quotationData.footer) {
+      doc.addImage(quotationData.footer, 'PNG', 0, pageHeight - 30, pageWidth, 30);
+    } else {
+      doc.setFontSize(9);
+      doc.setTextColor(150, 150, 150);
+      doc.text("Professional Document Generated via Dabby", pageWidth / 2, pageHeight - 10, { align: "center" });
+    }
 
     doc.save(`Quotation_${quotationData.quotationNumber}.pdf`);
   };
@@ -211,36 +263,62 @@ export default function QuotationGenerator() {
     const subtotal = calculateSubtotal();
     const tax = calculateTax();
     const total = calculateTotal();
+    const symbol = "Rs. ";
 
     const doc = new Document({
       sections: [{
         properties: {},
         children: [
-          // Header Bar replacement in Word
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            borders: BorderStyle.NONE,
-            rows: [
-              new TableRow({
-                children: [
-                  new TableCell({
-                    shading: { fill: "0047AB" },
-                    margins: { top: 400, bottom: 400, left: 400, right: 400 },
-                    children: [
-                      new Paragraph({
-                        children: [
-                          new TextRun({ text: "QUOTATION", bold: true, size: 48, color: "FFFFFF" }),
-                        ],
-                        alignment: AlignmentType.CENTER,
-                      }),
-                    ],
-                  }),
-                ],
-              }),
-            ],
-          }),
+          // Header / Letterhead
+          ...(quotationData.letterhead ? [
+            new Paragraph({
+              children: [
+                new ImageRun({
+                  data: base64ToUint8Array(quotationData.letterhead),
+                  transformation: { width: 600, height: 100 },
+                }),
+              ],
+              alignment: AlignmentType.CENTER,
+            }),
+            new Paragraph({ text: "", spacing: { before: 200 } }),
+          ] : [
+            new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              borders: BorderStyle.NONE,
+              rows: [
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      shading: { fill: "0047AB" },
+                      margins: { top: 400, bottom: 400, left: 400, right: 400 },
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({ text: "QUOTATION", bold: true, size: 48, color: "FFFFFF" }),
+                          ],
+                          alignment: AlignmentType.CENTER,
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new Paragraph({ text: "", spacing: { before: 400 } }),
+          ]),
 
-          new Paragraph({ text: "", spacing: { before: 400 } }),
+          // Logo
+          ...(quotationData.logo ? [
+            new Paragraph({
+              children: [
+                new ImageRun({
+                  data: base64ToUint8Array(quotationData.logo),
+                  transformation: { width: 80, height: 80 },
+                }),
+              ],
+              spacing: { before: 200, after: 200 },
+            }),
+          ] : []),
 
           // Document Info
           new Table({
@@ -318,16 +396,16 @@ export default function QuotationGenerator() {
                 children: [
                   new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Description", bold: true, color: "FFFFFF" })] })] }),
                   new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Quantity", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.CENTER }),
-                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Price (₹)", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.RIGHT }),
-                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Total (₹)", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.RIGHT }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Price (Rs.)", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.RIGHT }),
+                  new TableCell({ shading: { fill: "0047AB" }, children: [new Paragraph({ children: [new TextRun({ text: "Total (Rs.)", bold: true, color: "FFFFFF" })] })], alignment: AlignmentType.RIGHT }),
                 ],
               }),
               ...quotationData.items.map(item => new TableRow({
                 children: [
                   new TableCell({ children: [new Paragraph({ text: item.description })], margins: { left: 100, top: 100, bottom: 100 } }),
                   new TableCell({ children: [new Paragraph({ text: item.quantity.toString(), alignment: AlignmentType.CENTER })], margins: { top: 100, bottom: 100 } }),
-                  new TableCell({ children: [new Paragraph({ text: item.price.toFixed(2), alignment: AlignmentType.RIGHT })], margins: { top: 100, bottom: 100, right: 100 } }),
-                  new TableCell({ children: [new Paragraph({ text: (item.quantity * item.price).toFixed(2), alignment: AlignmentType.RIGHT })], margins: { top: 100, bottom: 100, right: 100 } }),
+                  new TableCell({ children: [new Paragraph({ text: `${symbol}${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, alignment: AlignmentType.RIGHT })], margins: { top: 100, bottom: 100, right: 100 } }),
+                  new TableCell({ children: [new Paragraph({ text: `${symbol}${(item.quantity * item.price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, alignment: AlignmentType.RIGHT })], margins: { top: 100, bottom: 100, right: 100 } }),
                 ],
               })),
             ],
@@ -338,19 +416,19 @@ export default function QuotationGenerator() {
           // Totals Section
           new Paragraph({
             children: [
-              new TextRun({ text: `Subtotal: ₹${subtotal.toFixed(2)}` }),
+              new TextRun({ text: `Subtotal: ${symbol}${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }),
             ],
             alignment: AlignmentType.RIGHT,
           }),
           new Paragraph({
             children: [
-              new TextRun({ text: `GST (${quotationData.taxRate}%): ₹${tax.toFixed(2)}` }),
+              new TextRun({ text: `GST (${quotationData.taxRate}%): ${symbol}${tax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }),
             ],
             alignment: AlignmentType.RIGHT,
           }),
           new Paragraph({
             children: [
-              new TextRun({ text: `Total Amount: ₹${total.toFixed(2)}`, bold: true, size: 28, color: "0047AB" }),
+              new TextRun({ text: `Total Amount: ${symbol}${total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bold: true, size: 28, color: "0047AB" }),
             ],
             alignment: AlignmentType.RIGHT,
             spacing: { before: 200 },
@@ -363,12 +441,26 @@ export default function QuotationGenerator() {
           ] : []),
 
           new Paragraph({ text: "", spacing: { before: 1200 } }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: "Professional Document Generated via Dabby", color: "808080", size: 18, italic: true }),
-            ],
-            alignment: AlignmentType.CENTER,
-          }),
+          
+          // Footer / Branding
+          ...(quotationData.footer ? [
+            new Paragraph({
+              children: [
+                new ImageRun({
+                  data: base64ToUint8Array(quotationData.footer),
+                  transformation: { width: 600, height: 80 },
+                }),
+              ],
+              alignment: AlignmentType.CENTER,
+            }),
+          ] : [
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Professional Document Generated via Dabby", color: "808080", size: 18, italic: true }),
+              ],
+              alignment: AlignmentType.CENTER,
+            }),
+          ]),
         ],
       }],
     });
@@ -442,6 +534,89 @@ export default function QuotationGenerator() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
             <div className="space-y-4">
+              <h2 className="text-lg font-semibold border-b pb-2 mb-4">Branding & Logo</h2>
+              <div className="grid grid-cols-1 gap-4">
+                {/* Logo Upload */}
+                <div>
+                  <label className="block text-sm font-medium mb-2 opacity-70">Company Logo</label>
+                  <div className={`relative border-2 border-dashed rounded-xl p-4 transition-colors ${
+                    quotationData.logo ? "border-[#81E6D9]/50 bg-[#81E6D9]/5" : "border-gray-300 dark:border-white/10"
+                  }`}>
+                    {quotationData.logo ? (
+                      <div className="relative inline-block">
+                        <img src={quotationData.logo} alt="Logo" className="h-20 w-auto rounded-lg" />
+                        <button
+                          onClick={() => removeImage('logo')}
+                          className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center gap-2 cursor-pointer py-2">
+                        <Upload className="w-6 h-6 opacity-50" />
+                        <span className="text-xs opacity-60 text-center">Upload Logo<br/>(PNG/JPG)</span>
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                {/* Letterhead Upload */}
+                <div>
+                  <label className="block text-sm font-medium mb-2 opacity-70">Custom Letterhead (Header)</label>
+                  <div className={`relative border-2 border-dashed rounded-xl p-4 transition-colors ${
+                    quotationData.letterhead ? "border-[#81E6D9]/50 bg-[#81E6D9]/5" : "border-gray-300 dark:border-white/10"
+                  }`}>
+                    {quotationData.letterhead ? (
+                      <div className="relative w-full">
+                        <img src={quotationData.letterhead} alt="Letterhead" className="h-16 w-full object-cover rounded-lg" />
+                        <button
+                          onClick={() => removeImage('letterhead')}
+                          className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center gap-2 cursor-pointer py-2">
+                        <Upload className="w-6 h-6 opacity-50" />
+                        <span className="text-xs opacity-60">Upload Header Image (Full Width)</span>
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'letterhead')} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer Upload */}
+                <div>
+                  <label className="block text-sm font-medium mb-2 opacity-70">Custom Footer Image</label>
+                  <div className={`relative border-2 border-dashed rounded-xl p-4 transition-colors ${
+                    quotationData.footer ? "border-[#81E6D9]/50 bg-[#81E6D9]/5" : "border-gray-300 dark:border-white/10"
+                  }`}>
+                    {quotationData.footer ? (
+                      <div className="relative w-full">
+                        <img src={quotationData.footer} alt="Footer" className="h-16 w-full object-cover rounded-lg" />
+                        <button
+                          onClick={() => removeImage('footer')}
+                          className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center gap-2 cursor-pointer py-2">
+                        <Upload className="w-6 h-6 opacity-50" />
+                        <span className="text-xs opacity-60">Upload Footer Image (Full Width)</span>
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'footer')} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
               <h2 className="text-lg font-semibold border-b pb-2 mb-4">Quotation Details</h2>
               <div>
                 <label className="block text-sm font-medium mb-1 opacity-70">Quotation Number</label>
@@ -481,24 +656,23 @@ export default function QuotationGenerator() {
                   />
                 </div>
               </div>
-            </div>
-
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold border-b pb-2 mb-4">Tax & Currency</h2>
-              <div>
-                <label className="block text-sm font-medium mb-1 opacity-70">GST Rate (%)</label>
-                <input
-                  type="number"
-                  name="taxRate"
-                  value={quotationData.taxRate}
-                  onChange={handleInputChange}
-                  className={`w-full p-3 rounded-xl border ${
-                    theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                  }`}
-                />
-              </div>
-              <div className="p-4 rounded-xl bg-[#81E6D9]/5 border border-[#81E6D9]/20">
-                <p className="text-xs opacity-70">Default Currency: <span className="font-bold text-[#81E6D9]">INR (₹)</span></p>
+              <div className="mt-4">
+                <h2 className="text-lg font-semibold border-b pb-2 mb-4">Tax & Currency</h2>
+                <div>
+                  <label className="block text-sm font-medium mb-1 opacity-70">GST Rate (%)</label>
+                  <input
+                    type="number"
+                    name="taxRate"
+                    value={quotationData.taxRate}
+                    onChange={handleInputChange}
+                    className={`w-full p-3 rounded-xl border ${
+                      theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                    }`}
+                  />
+                </div>
+                <div className="p-4 rounded-xl bg-[#81E6D9]/5 border border-[#81E6D9]/20 mt-4">
+                  <p className="text-xs opacity-70">Default Currency: <span className="font-bold text-[#81E6D9]">INR (₹)</span></p>
+                </div>
               </div>
             </div>
           </div>

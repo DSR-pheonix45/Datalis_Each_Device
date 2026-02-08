@@ -14,7 +14,6 @@ const generateFileSuggestions = (file) => {
     extension === "csv" ||
     fileName.includes("finance") ||
     fileName.includes("expense") ||
-    fileName.includes("budget") ||
     fileName.includes("transaction") ||
     fileName.includes("sales")
   ) {
@@ -22,7 +21,7 @@ const generateFileSuggestions = (file) => {
       "Analyze spending patterns by category",
       "Generate monthly expense summary",
       "Identify unusual transactions or outliers",
-      "Create budget recommendations based on this data",
+      "Identify financial trends based on this data",
       "Compare income vs expenses trends",
       "Show top 5 expense categories",
     ];
@@ -57,19 +56,19 @@ const generateFileSuggestions = (file) => {
       "Summarize the key data points in this spreadsheet",
       "Identify trends and patterns in the data",
       "Generate insights and recommendations",
-      "Find correlations between different metrics",
-      "Create a visual summary of the data",
+      "Find correlations between different variables",
+      "Explain the data structure and content",
     ];
   }
 
   // PDF documents
   if (extension === "pdf") {
-    if (fileName.includes("report") || fileName.includes("statement")) {
+    if (fileName.includes("statement") || fileName.includes("analysis")) {
       return [
-        "Summarize the key findings from this report",
-        "Extract important financial metrics",
+        "Summarize the key findings from this document",
+        "Extract important financial insights",
         "Identify key recommendations or action items",
-        "Compare this report to industry standards",
+        "Compare this document to industry standards",
       ];
     }
     return [

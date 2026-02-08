@@ -91,7 +91,6 @@ export async function callLLMWithFallback(request: LLMRequest): Promise<LLMRespo
     const { data, error } = await supabase.functions.invoke('chat_query', {
       body: {
         query: request.query,
-        workbench_id: null, // No workbench context for now
         web_search: request.web_search || false,
         uploaded_files: []
       }
