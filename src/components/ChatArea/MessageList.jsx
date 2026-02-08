@@ -1,9 +1,7 @@
 import React, { useEffect, useRef } from "react";
-import { useTheme } from "../../context/ThemeContext";
 import Message from "./Message";
 
 const MessageList = ({ messages }) => {
-  const { darkMode } = useTheme();
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {

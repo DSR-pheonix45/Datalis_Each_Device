@@ -187,7 +187,7 @@ export default function InteractiveWorkflow() {
                             </div>
                           </div>
                         )}
-                        {/* Reports mockup */}
+                        {/* Analysis mockup */}
                         {activeStep === 1 && (
                           <div className={`h-full rounded-lg p-3 md:p-4 flex flex-col ${theme === "dark" ? "bg-[#111111]" : "bg-white border border-gray-200"}`}>
                             <div className="flex justify-between items-center mb-4">

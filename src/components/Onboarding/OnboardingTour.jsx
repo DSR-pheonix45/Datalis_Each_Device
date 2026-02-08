@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,16 +8,12 @@ import {
   BsArrowLeft,
   BsCheck2,
   BsChat,
-  BsBriefcase,
-  BsBarChart,
   BsGear,
-  BsBuilding,
   BsLightning,
   BsStars,
   BsRocket,
   BsFileEarmark,
   BsSearch,
-  BsCheck2Square,
 } from "react-icons/bs";
 
 // Desktop Tour step configurations (with spotlight)
@@ -83,7 +79,7 @@ const desktopTourSteps = [
     title: "You're Ready!",
     subtitle: "Start Your Journey",
     description:
-      "Begin by adding a company or uploading files to analyze. Dabby is here to help with any financial questions!",
+      "Begin by uploading files to analyze. Dabby is here to help with any financial questions!",
     icon: BsCheck2,
     isComplete: true,
   },
@@ -113,10 +109,9 @@ const mobileTourSteps = [
     title: "Navigate with Menu",
     subtitle: "Tap the ☰ icon",
     description:
-      "Use the menu button in the top-left corner to access the sidebar. From there you can navigate to Companies and Settings.",
+      "Use the menu button in the top-left corner to access the sidebar. From there you can navigate to Settings.",
     icon: BsSearch,
     features: [
-      { icon: BsBuilding, text: "Manage companies" },
       { icon: BsGear, text: "Configure settings" },
     ],
   },
@@ -148,7 +143,7 @@ const mobileTourSteps = [
   },
 ];
 
-export default function OnboardingTour({ isOpen, onClose, onComplete }) {
+export default function OnboardingTour({ isOpen, onComplete }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [currentStep, setCurrentStep] = useState(0);

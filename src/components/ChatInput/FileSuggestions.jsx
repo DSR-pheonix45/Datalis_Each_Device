@@ -6,7 +6,6 @@ import { BsLightbulb, BsArrowRight } from "react-icons/bs";
  */
 const generateFileSuggestions = (file) => {
   const fileName = file.name.toLowerCase();
-  const fileType = file.type.toLowerCase();
   const extension = fileName.split(".").pop();
 
   // Financial/CSV files

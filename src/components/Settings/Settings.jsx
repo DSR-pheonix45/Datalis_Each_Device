@@ -1,30 +1,19 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useTheme } from "../../context/ThemeContext";
+import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import {
-  Users,
-  Building2,
   User,
   X,
   Sparkles,
   Command,
   HelpCircle,
-  UserPlus,
-  Plus,
-  MoreVertical,
-  Briefcase,
   Save,
   ChevronDown,
 } from "lucide-react";
 import KeyboardShortcutsModal from "../KeyboardShortcuts/KeyboardShortcutsModal";
 import OnboardingTour from "../Onboarding/OnboardingTour";
-import { supabase } from "../../lib/supabase";
 
 export default function Settings() {
-  const navigate = useNavigate();
-  const { darkMode } = useTheme();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState("account");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -33,58 +22,12 @@ export default function Settings() {
   );
   const [showProfileModal, setShowProfileModal] = useState(false);
 
-  // State for Organization/Company management
-  const [showCreateCompany, setShowCreateCompany] = useState(false);
-  const [showInviteMember, setShowInviteMember] = useState(false);
-  const [companies, setCompanies] = useState([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
-  const [newCompanyName, setNewCompanyName] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("Member");
-
-  useEffect(() => {
-    fetchCompanies();
-  }, []);
-
-  const fetchCompanies = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("companies")
-        .select("*")
-        .eq("owner_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      
-      setCompanies(data || []);
-      if (data && data.length > 0) {
-        setSelectedCompanyId(data[0].id);
-      }
-    } catch (error) {
-      console.error("Error fetching companies:", error);
-      setMessage("Error loading companies: " + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Mobile accordion state
-  const [expandedSections, setExpandedSections] = useState(["account"]);
-
   // Help modals state
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
-  // Toggle mobile accordion section
-  const toggleSection = (sectionId) => {
-    setExpandedSections((prev) =>
-      prev.includes(sectionId)
-        ? prev.filter((id) => id !== sectionId)
-        : [...prev, sectionId]
-    );
-  };
+  // Mobile accordion state
+  const [expandedSections, setExpandedSections] = useState(["account"]);
 
   const sections = [
     {
@@ -93,13 +36,6 @@ export default function Settings() {
       description: "Update your account settings and preferences",
       icon: User,
       subtitle: "Personal info and preferences",
-    },
-    {
-      id: "organization",
-      label: "Organizations",
-      description: "Manage your organization settings and members",
-      icon: Building2,
-      subtitle: "Team and access",
     },
     {
       id: "help",
@@ -119,67 +55,6 @@ export default function Settings() {
       setMessage("Error: " + error.message);
     }
     setLoading(false);
-  };
-
-  const handleCreateCompany = async () => {
-    if (!newCompanyName.trim()) return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("companies")
-        .insert([
-          {
-            company_name: newCompanyName,
-            owner_id: user.id,
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setCompanies([...companies, data]);
-      setNewCompanyName("");
-      setShowCreateCompany(false);
-      setMessage("Company created successfully!");
-      // Dispatch event to refresh Header and Sidebar
-      window.dispatchEvent(new CustomEvent("companyCreated"));
-    } catch (error) {
-      console.error("Error creating company:", error);
-      setMessage("Error creating company: " + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleInviteMember = async () => {
-    if (!inviteEmail.trim() || !selectedCompanyId) return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("company_invitations")
-        .insert([
-          {
-            company_id: selectedCompanyId,
-            email: inviteEmail,
-            role: inviteRole.toLowerCase(),
-            invited_by: user.id,
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setMessage(`Invitation sent to ${inviteEmail}`);
-      setInviteEmail("");
-      setShowInviteMember(false);
-    } catch (error) {
-      console.error("Error sending invitation:", error);
-      setMessage("Error sending invitation: " + error.message);
-    } finally {
-      setLoading(false);
-    }
   };
 
   const renderContent = () => {
@@ -240,252 +115,6 @@ export default function Settings() {
                       Save Changes
                     </button>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case "organization":
-        return (
-          <div className="max-w-3xl mx-auto space-y-3 lg:space-y-6">
-            {/* Companies Management */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl lg:rounded-2xl shadow-xl overflow-hidden">
-              <div className="p-3 lg:p-6">
-                <div className="flex items-center justify-between mb-3 lg:mb-6">
-                  <h3 className="text-sm lg:text-xl font-semibold text-white flex items-center gap-2">
-                    <div className="p-1.5 lg:p-2 bg-blue-500/10 rounded-lg">
-                      <Building2 className="w-4 h-4 lg:w-5 lg:h-5 text-blue-400" />
-                    </div>
-                    My Companies
-                  </h3>
-                  <button
-                    onClick={() => setShowCreateCompany(true)}
-                    className="inline-flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-1.5 lg:py-2 bg-[#00C6C2]/10 border border-[#00C6C2]/30 text-[#00C6C2] text-[10px] lg:text-sm font-semibold rounded-lg lg:rounded-xl hover:bg-[#00C6C2]/20 transition-all duration-200"
-                  >
-                    <Plus className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
-                    Create Company
-                  </button>
-                </div>
-
-                {showCreateCompany && (
-                  <div className="mb-4 lg:mb-6 p-3 lg:p-4 bg-black/40 border border-[#00C6C2]/30 rounded-lg lg:rounded-xl">
-                    <label className="block text-xs lg:text-sm font-medium text-[#E5E7EB] mb-2">
-                      New Company Name
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newCompanyName}
-                        onChange={(e) => setNewCompanyName(e.target.value)}
-                        className="flex-1 px-3 py-1.5 lg:py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#00C6C2]"
-                        placeholder="e.g. Acme Corp"
-                      />
-                      <button
-                        onClick={handleCreateCompany}
-                        className="px-4 py-1.5 lg:py-2 bg-[#00C6C2] text-black text-xs lg:text-sm font-bold rounded-lg hover:bg-[#00FFD1] transition-colors"
-                      >
-                        Create
-                      </button>
-                      <button
-                        onClick={() => setShowCreateCompany(false)}
-                        className="p-1.5 lg:p-2 text-gray-400 hover:text-white"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-2 lg:space-y-3">
-                  {companies.map((company) => (
-                    <div
-                      key={company.id}
-                      className={`flex items-center justify-between p-3 lg:p-4 border rounded-lg lg:rounded-xl transition-all group cursor-pointer ${
-                        selectedCompanyId === company.id
-                          ? "bg-[#00C6C2]/10 border-[#00C6C2]/50"
-                          : "bg-black/20 border-white/10 hover:bg-white/5"
-                      }`}
-                      onClick={() => setSelectedCompanyId(company.id)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`p-2 rounded-lg transition-colors ${
-                            selectedCompanyId === company.id
-                              ? "bg-[#00C6C2]/20"
-                              : "bg-white/5 group-hover:bg-[#00C6C2]/10"
-                          }`}
-                        >
-                          <Briefcase
-                            className={`w-4 h-4 transition-colors ${
-                              selectedCompanyId === company.id
-                                ? "text-[#00C6C2]"
-                                : "text-[#9BA3AF] group-hover:text-[#00C6C2]"
-                            }`}
-                          />
-                        </div>
-                        <div>
-                          <h4 className="text-sm lg:text-base font-medium text-white">
-                            {company.company_name}
-                          </h4>
-                          <p className="text-[10px] lg:text-xs text-[#6B7280]">
-                            {company.role}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {selectedCompanyId === company.id && (
-                          <div className="px-2 py-0.5 bg-[#00C6C2] text-black text-[8px] lg:text-[10px] font-bold rounded-full">
-                            SELECTED
-                          </div>
-                        )}
-                        <button className="p-1.5 lg:p-2 text-[#6B7280] hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-                          <MoreVertical className="w-4 h-4 lg:w-5 lg:h-5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {companies.length === 0 && !loading && (
-                    <div className="text-center py-8 border-2 border-dashed border-white/5 rounded-xl">
-                      <p className="text-[#6B7280] text-sm">
-                        No companies found. Create one to get started!
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Manage Members Section */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl lg:rounded-2xl shadow-xl overflow-hidden">
-              <div className="p-3 lg:p-6">
-                <div className="flex items-center justify-between mb-3 lg:mb-6">
-                  <h3 className="text-sm lg:text-xl font-semibold text-white flex items-center gap-2">
-                    <div className="p-1.5 lg:p-2 bg-teal-500/10 rounded-lg">
-                      <Users className="w-4 h-4 lg:w-5 lg:h-5 text-teal-400" />
-                    </div>
-                    Team Members
-                  </h3>
-                  <button
-                    onClick={() => setShowInviteMember(true)}
-                    className="inline-flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-1.5 lg:py-2 bg-teal-500/10 border border-teal-500/30 text-teal-400 text-[10px] lg:text-sm font-semibold rounded-lg lg:rounded-xl hover:bg-teal-500/20 transition-all duration-200"
-                  >
-                    <UserPlus className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
-                    Invite Member
-                  </button>
-                </div>
-
-                {showInviteMember && (
-                  <div className="mb-4 lg:mb-6 p-3 lg:p-4 bg-black/40 border border-teal-500/30 rounded-lg lg:rounded-xl">
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="block text-xs lg:text-sm font-medium text-[#E5E7EB]">
-                        Invite to{" "}
-                        <span className="text-teal-400">
-                          {companies.find((c) => c.id === selectedCompanyId)
-                            ?.company_name || "selected company"}
-                        </span>
-                      </label>
-                      <button
-                        onClick={() => setShowInviteMember(false)}
-                        className="text-gray-400 hover:text-white"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="flex flex-col lg:flex-row gap-2">
-                      <div className="flex-1 flex gap-2">
-                        <input
-                          type="email"
-                          value={inviteEmail}
-                          onChange={(e) => setInviteEmail(e.target.value)}
-                          className="flex-1 px-3 py-1.5 lg:py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:ring-1 focus:ring-teal-500"
-                          placeholder="email@example.com"
-                        />
-                        <select
-                          value={inviteRole}
-                          onChange={(e) => setInviteRole(e.target.value)}
-                          className="px-2 py-1.5 lg:py-2 bg-white/5 border border-white/10 rounded-lg text-xs lg:text-sm text-white focus:outline-none"
-                        >
-                          <option value="Member">Member</option>
-                          <option value="Admin">Admin</option>
-                        </select>
-                      </div>
-                      <button
-                        onClick={handleInviteMember}
-                        className="px-4 py-1.5 lg:py-2 bg-teal-500 text-black text-xs lg:text-sm font-bold rounded-lg hover:bg-teal-400 transition-colors"
-                      >
-                        Send Invite
-                      </button>
-                    </div>
-                    {!selectedCompanyId && (
-                      <p className="mt-2 text-xs text-red-400">
-                        Please select a company above first.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Members List */}
-                <div className="bg-black/20 border border-white/10 rounded-lg lg:rounded-xl overflow-hidden">
-                  <div className="px-3 lg:px-4 py-2 lg:py-3 border-b border-white/10 bg-white/5">
-                    <div className="grid grid-cols-12 gap-2 lg:gap-4">
-                      <div className="col-span-6 lg:col-span-7 text-[10px] lg:text-sm font-medium text-[#9BA3AF]">
-                        Member
-                      </div>
-                      <div className="col-span-4 lg:col-span-3 text-[10px] lg:text-sm font-medium text-[#9BA3AF]">
-                        Role
-                      </div>
-                      <div className="col-span-2 lg:col-span-2 text-right text-[10px] lg:text-sm font-medium text-[#9BA3AF]">
-                        Action
-                      </div>
-                    </div>
-                  </div>
-                  <div className="divide-y divide-white/5">
-                    <div className="px-3 lg:px-4 py-3 lg:py-4">
-                      <div className="grid grid-cols-12 gap-2 lg:gap-4 items-center">
-                        <div className="col-span-6 lg:col-span-7 flex items-center gap-2">
-                          <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-[#00C6C2]/20 flex items-center justify-center text-[10px] lg:text-xs text-[#00C6C2] font-bold">
-                            {user?.email?.[0].toUpperCase() || "U"}
-                          </div>
-                          <div className="truncate">
-                            <div className="text-[10px] lg:text-sm text-white font-medium truncate">
-                              {username || "You"}
-                            </div>
-                            <div className="text-[8px] lg:text-xs text-[#6B7280] truncate">
-                              {user?.email}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="col-span-4 lg:col-span-3">
-                          <span className="px-1.5 lg:px-2 py-0.5 lg:py-1 bg-[#00C6C2]/10 text-[#00C6C2] text-[8px] lg:text-xs font-medium rounded-full border border-[#00C6C2]/20">
-                            Owner
-                          </span>
-                        </div>
-                        <div className="col-span-2 lg:col-span-2 text-right">
-                          <button className="p-1 lg:p-2 text-[#6B7280] hover:text-white transition-colors">
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Org Settings Card */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl lg:rounded-2xl shadow-xl overflow-hidden">
-              <div className="p-3 lg:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm lg:text-xl font-semibold text-white">
-                      Organization Settings
-                    </h3>
-                    <p className="text-[#6B7280] text-[10px] lg:text-sm mt-0.5">Manage organization-wide preferences and deletion.</p>
-                  </div>
-                  <button className="px-3 lg:px-4 py-1.5 lg:py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 text-[10px] lg:text-sm font-medium rounded-lg border border-red-500/20 transition-colors">
-                    Delete Org
-                  </button>
                 </div>
               </div>
             </div>

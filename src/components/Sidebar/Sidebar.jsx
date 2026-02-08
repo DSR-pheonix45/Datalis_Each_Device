@@ -4,8 +4,6 @@ import {
   BsPerson,
   BsGear,
   BsChat,
-  BsExclamationCircle,
-  BsHouse,
   BsStars,
   BsChevronDown,
   BsChevronRight,
@@ -122,7 +120,7 @@ export default function Sidebar({
   isCollapsed = false,
   onNavigate, // Callback to close mobile sidebar after navigation
 }) {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -145,38 +143,7 @@ export default function Sidebar({
 
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [companies, setCompanies] = useState([]);
   const [chatHistory, setChatHistory] = useState([]);
-
-  const fetchCompanies = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      // Try direct query first
-      const { data, error } = await supabase
-        .from("companies")
-        .select("*")
-        .eq("owner_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.warn("Direct company query failed, trying RPC:", error.message);
-        const { data: rpcData, error: rpcError } = await supabase.rpc(
-          "get_user_companies",
-          {
-            p_user_id: user.id,
-          }
-        );
-
-        if (rpcError) throw rpcError;
-        setCompanies(rpcData || []);
-      } else {
-        setCompanies(data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching companies:", error);
-    }
-  }, [user]);
 
   const fetchChatHistory = useCallback(async () => {
     if (!user) return;
@@ -188,8 +155,7 @@ export default function Sidebar({
           id,
           title,
           created_at,
-          last_message_at,
-          company_id
+          last_message_at
         `
         )
         .eq("user_id", user.id)
@@ -212,7 +178,6 @@ export default function Sidebar({
   }, [user]);
 
   useEffect(() => {
-    fetchCompanies();
     fetchChatHistory();
 
     // Keyboard shortcut for search (Ctrl+K)
@@ -230,18 +195,11 @@ export default function Sidebar({
     };
     window.addEventListener("chatHistoryUpdated", handleChatHistoryUpdate);
 
-    // Listen for company creation
-    const handleCompanyCreated = () => {
-      fetchCompanies();
-    };
-    window.addEventListener("companyCreated", handleCompanyCreated);
-
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("chatHistoryUpdated", handleChatHistoryUpdate);
-      window.removeEventListener("companyCreated", handleCompanyCreated);
     };
-  }, [user, fetchChatHistory, fetchCompanies]);
+  }, [user, fetchChatHistory]);
 
   const loadChatSession = async (sessionId) => {
     try {
@@ -278,7 +236,6 @@ export default function Sidebar({
       navigate("/dashboard");
     } catch (error) {
       console.error("Error loading chat session:", error);
-      toast.error("Failed to load chat session. Please try again.");
     }
   };
 

@@ -4,7 +4,6 @@ import React, {
   useEffect,
   useImperativeHandle,
   forwardRef,
-  useCallback,
 } from "react";
 import {
   BsPaperclip,

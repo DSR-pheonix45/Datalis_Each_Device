@@ -7,8 +7,8 @@ const capabilities = [
     description: "Issue service tokens with granular scopes and rotate them instantly.",
   },
   {
-    title: "Metrics API",
-    description: "Push KPIs from any system and fetch normalized insights back.",
+    title: "Intelligence API",
+    description: "Push datasets from any system and fetch normalized insights back.",
   },
   {
     title: "Workflow triggers",

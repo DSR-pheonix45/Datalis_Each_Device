@@ -21,70 +21,7 @@ const FREE_MODELS = [
 
 
 
-/**
- * Process uploaded files for Edge Function (read content in frontend)
- */
-async function processUploadedFilesForEdgeFunction(uploadedFiles) {
-  if (!uploadedFiles || uploadedFiles.length === 0) {
-    return [];
-  }
 
-  let processedFiles = [];
-
-  for (const file of uploadedFiles) {
-    try {
-      const content = await readFileContent(file);
-      if (content) {
-        processedFiles.push({
-          name: file.name,
-          content: content,
-          size: file.size,
-          type: file.type,
-        });
-      }
-    } catch (error) {
-      console.warn(
-        `Failed to process file ${file.name} for Edge Function:`,
-        error
-      );
-      processedFiles.push({
-        name: file.name,
-        content: `Error reading file: ${error.message}`,
-        size: file.size,
-        type: file.type,
-      });
-    }
-  }
-
-  return processedFiles;
-}
-
-/**
- * Process already-processed file data for direct API calls (files are already objects with content)
- */
-async function processUploadedFilesForDirectAPI(uploadedFiles) {
-  if (!uploadedFiles || uploadedFiles.length === 0) {
-    return "";
-  }
-
-  let fileContents = [];
-
-  for (const fileData of uploadedFiles) {
-    try {
-      if (fileData.content && fileData.name) {
-        fileContents.push(
-          `--- File: ${fileData.name} ---\n${fileData.content}\n--- End of ${fileData.name} ---\n`
-        );
-      }
-    } catch (error) {
-      console.warn(`Failed to process file data ${fileData.name}:`, error);
-      fileContents.push(
-        `--- File: ${fileData.name || "Unknown"} (could not read content) ---\n`
-      );
-    }
-  }
-  return fileContents.join("\n");
-}
 
 /**
  * Read file content based on file type
@@ -290,7 +227,7 @@ CRITICAL BEHAVIOR RULES:
 3.  **Suggestions**: Instead of a bullet list of "what I can do", provide 2-3 specific, clickable "Suggestion Chips" at the end of your response for the user's next likely action.
     Format them EXACTLY like this at the very end:
     [SUGGESTION: Analyze detail]
-    [SUGGESTION: Create chart]
+    [SUGGESTION: Identify trends]
     [SUGGESTION: Compare periods]
 
 4.  **Tone**: Professional but strictly "product-like"—modern, sharp, and direct. Avoid filling space with polite fluff.
@@ -507,77 +444,7 @@ export async function callLLMDirectly(request) {
   };
 }
 
-/**
- * Upload files to Supabase and process them for RAG
- */
-async function uploadFilesToSupabase(uploadedFiles) {
-  const { supabase } = await import("../lib/supabase.js");
-  const results = [];
 
-  for (const file of uploadedFiles) {
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      let binary = "";
-      const bytes = new Uint8Array(arrayBuffer);
-      const len = bytes.byteLength;
-      for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
-      const base64Content = btoa(binary);
-
-      const { data, error } = await supabase.functions.invoke(
-        "workbench-files-upload",
-        {
-          body: {
-            file: {
-              name: file.name,
-              type: file.type,
-              content: base64Content,
-            },
-          },
-        }
-      );
-
-      if (error) {
-        results.push({ name: file.name, success: false, error: error.message });
-      } else {
-        results.push({
-          name: file.name,
-          success: true,
-          fileId: data?.file?.id,
-        });
-      }
-    } catch (err) {
-      results.push({ name: file.name, success: false, error: err.message });
-    }
-  }
-
-  return results;
-}
-
-/**
- * Query RAG context from Supabase using vector search
- */
-async function queryRAGContext(query) {
-  try {
-    const { supabase } = await import("../lib/supabase.js");
-
-    const { data, error } = await supabase.functions.invoke("query_context", {
-      body: {
-        query: query,
-        limit: 5,
-      },
-    });
-
-    if (error) {
-      console.error("RAG context query error:", error);
-      return null;
-    }
-
-    return data.context || null;
-  } catch (error) {
-    console.error("Error querying RAG context:", error);
-    return null;
-  }
-}
 
 /**
  * Main function that handles RAG context retrieval and LLM calls
@@ -645,89 +512,22 @@ export async function callLLMWithFallback(request) {
     */
   }
 
-  // 2. Query RAG context if workbench is active (skip for now - edge functions not deployed)
+  // 2. Query RAG context from Supabase if needed
   /*
-  if (request.workbench_id) {
-    console.log('Querying RAG context from Supabase...')
-    const ragContext = await queryRAGContext(request.query, request.workbench_id)
-    
+  if (request.use_rag) {
+    console.log('Querying RAG context for:', request.query)
+    const ragContext = await queryRAGContext(request.query)
     if (ragContext) {
-      console.log('RAG context retrieved, length:', ragContext.length)
-      combinedContext += '\n\n=== Relevant Context from Documents ===\n' + ragContext
-    } else {
-      console.log('No RAG context found or query failed')
+      combinedContext += '\n\n=== Relevant RAG Context ===\n' + ragContext
     }
   }
   */
 
-  // 3. Skip edge function, use direct LLM API call (edge functions not deployed)
-  /*
-  try {
-    console.log('Trying Supabase edge function...')
- 
-    const { supabase } = await import('../lib/supabase.js')
- 
-    const { data, error } = await supabase.functions.invoke('chat_query', {
-      body: {
-        query: request.query,
-        context: combinedContext,
-        web_search: request.web_search || false,
-        workbench_id: request.workbench_id || null
-      }
-    })
- 
-    if (error) throw error
- 
-    if (data?.response) {
-      console.log('Edge function succeeded')
-      return { response: data.response, context: combinedContext }
-    }
- 
-  } catch (error) {
-    console.warn('Edge function failed, falling back to direct LLM call:', error)
-  }
-  */
-
-  // 3. Web Search (if explicitly requested via web_search flag)
-  if (request.web_search) {
-    console.log("Web search enabled, fetching latest information...");
-    try {
-      const { WebSearchService } = await import("./webSearchService");
-      const searchResults = await WebSearchService.search(request.query);
-      
-      if (searchResults && searchResults.trim()) {
-        combinedContext += "\n\n" + searchResults;
-        console.log("Added web search results to context");
-      }
-    } catch (error) {
-      console.error("Web search failed:", error);
-      // Continue without web search results if there's an error
-    }
-  }
-
-  // 4. Use direct LLM API call with context and history
-  console.log("Using direct LLM API call with file context");
-
-  // Format history for the LLM
-  // We need to allow the caller to pass 'history' which is an array of messages
-  // We map them to the { role, content } format expected by the API
-  let formattedHistory = [];
-  if (request.history && Array.isArray(request.history)) {
-    // Take the last 20 messages to preserve context window
-    const recentHistory = request.history.slice(-20);
-    formattedHistory = recentHistory.map(msg => ({
-      role: msg.role || (msg.sender === "You" ? "user" : "assistant"),
-      content: msg.content
-    })).filter(msg => msg.content && msg.role); // Ensure valid messages
-  }
-
-  const result = await callLLMDirectly({
+  // 3. Make the LLM call with combined context
+  return await callLLMDirectly({
     ...request,
-    history: formattedHistory,
     context: combinedContext,
   });
-  console.log("Direct LLM API call result:", result);
-  return { response: result.response, context: combinedContext };
 }
 
 

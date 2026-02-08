@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import Sidebar from "./Sidebar/Sidebar";
 import Header from "./Header/Header";
 import WelcomeSection from "./WelcomeSection/WelcomeSection";
@@ -17,20 +16,17 @@ import { BsRocketTakeoff } from "react-icons/bs";
 
 export default function MainApp() {
   useTheme(); // Theme context is used for side effects
-  const navigate = useNavigate();
   const location = useLocation();
   const { user, profile } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [messages, setMessages] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
-  const [companies, setCompanies] = useState([]);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [currentContext, setCurrentContext] = useState("");
   const [isInConversation, setIsInConversation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("");
   const [showTour, setShowTour] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const chatInputRef = useRef(null);
@@ -62,54 +58,6 @@ export default function MainApp() {
     localStorage.setItem("dabby_onboarding_completed", "true");
   };
 
-  // Fetch companies for the logged-in user
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (!user?.id) return;
-
-      try {
-        // Fetch companies where the user is a member
-        const { data: memberData, error: memberError } = await supabase
-          .from("company_members")
-          .select(`
-            company_id,
-            company:companies (
-              id,
-              company_name,
-              created_at
-            )
-          `)
-          .eq("user_id", user.id);
-
-        if (memberError) {
-          console.error("Error fetching companies:", memberError);
-        } else {
-          // Map to the expected format
-          const formattedCompanies = (memberData || [])
-            .filter((m) => m.company)
-            .map((m) => ({
-              company_id: m.company.id,
-              company_name: m.company.company_name,
-            }));
-          setCompanies(formattedCompanies);
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      }
-    };
-
-    fetchUserData();
-
-    // Listen for company creation events to refresh data
-    const handleCompanyCreated = () => fetchUserData();
-
-    window.addEventListener("companyCreated", handleCompanyCreated);
-
-    return () => {
-      window.removeEventListener("companyCreated", handleCompanyCreated);
-    };
-  }, [user?.id]);
-
   // Listen for clearChat event from sidebar
   useEffect(() => {
     const handleClearChat = () => {
@@ -139,7 +87,7 @@ export default function MainApp() {
       window.removeEventListener("clearChat", handleClearChat);
       window.removeEventListener("loadChatSession", handleLoadChatSession);
     };
-  }, []);
+  }, [messages.length]);
 
   // Auto-save chat session and generate summary
   const saveChatSession = async (sessionMessages) => {
@@ -167,7 +115,6 @@ export default function MainApp() {
         const sessionData = {
           user_id: user.id,
           title,
-          company_id: companies[0]?.id || null,
           last_message_at: new Date().toISOString(),
         };
         console.log("Inserting new session with user.id:", user.id);
@@ -280,7 +227,6 @@ export default function MainApp() {
       };
       setMessages((prev) => [...prev, loading]);
       setIsLoading(true);
-      setLoadingMessage(loadingMsg);
       loadingId = loading.id;
     }
 
@@ -321,7 +267,6 @@ export default function MainApp() {
           })
       );
       setIsLoading(false);
-      setLoadingMessage("");
 
       // Auto-save chat session after AI responds
       const updatedMessages = messages.concat(newMessage, {
@@ -347,7 +292,6 @@ export default function MainApp() {
           })
       );
       setIsLoading(false);
-      setLoadingMessage("");
     }
   };
 
@@ -362,7 +306,7 @@ export default function MainApp() {
   };
 
   return (
-    <div className="flex h-screen h-[100dvh] w-full overflow-hidden bg-[#0a0a0a] text-white font-dm-sans relative">
+    <div className="flex h-screen w-full overflow-hidden bg-[#0a0a0a] text-white font-dm-sans relative">
       {/* Database Setup Banner - Removed as it's part of cleaned features */}
       <FeedbackModal 
         isOpen={isFeedbackModalOpen} 
@@ -441,7 +385,6 @@ export default function MainApp() {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Header */}
         <Header
-          companies={companies}
           onMobileMenuClick={() => setIsMobileSidebarOpen(true)}
         />
 

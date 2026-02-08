@@ -1,17 +1,13 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useTheme } from "../../context/ThemeContext";
+import React, { useMemo } from "react";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
 import ChatInput from "../ChatInput/ChatInput";
-import { supabase } from "../../lib/supabase";
+
 const ChatArea = ({
   messages: propMessages,
   onSendMessage,
   uploadedFiles,
-  datalisList,
 }) => {
-  const { darkMode } = useTheme();
-
   // Map MainApp messages to ChatArea format (preserve role property)
   const chatMessages = useMemo(() => {
     return propMessages.map((msg) => ({
