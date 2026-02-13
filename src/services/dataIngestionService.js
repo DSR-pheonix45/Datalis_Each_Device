@@ -359,9 +359,10 @@ export async function getDataset(datasetId) {
       .from("user_datasets")
       .select("*")
       .eq("id", datasetId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) throw new Error("Dataset not found");
 
     return {
       success: true,
@@ -396,13 +397,16 @@ export async function saveColumnMapping(
     }
 
     // Check if mapping already exists for this dataset
-    const { data: existing } = await supabase
+    // Use maybeSingle() because it's perfectly normal for it not to exist yet
+    const { data: existing, error: checkError } = await supabase
       .from("column_mappings")
       .select("id")
       .eq("dataset_id", datasetId)
       .eq("user_id", user.id)
       .eq("is_default", true)
-      .single();
+      .maybeSingle();
+
+    if (checkError) throw checkError;
 
     if (existing) {
       // Update existing mapping
@@ -415,7 +419,7 @@ export async function saveColumnMapping(
         })
         .eq("id", existing.id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -432,7 +436,7 @@ export async function saveColumnMapping(
           is_default: true,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -457,9 +461,9 @@ export async function getColumnMapping(datasetId) {
       .select("*")
       .eq("dataset_id", datasetId)
       .eq("is_default", true)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== "PGRST116") {
+    if (error) {
       throw error;
     }
 

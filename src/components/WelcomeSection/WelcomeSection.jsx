@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BsBarChart, BsStars } from 'react-icons/bs';
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../hooks/useAuth";
 import BrandLogo from "../common/BrandLogo";
 
 const TypingGreeting = ({ userName }) => {

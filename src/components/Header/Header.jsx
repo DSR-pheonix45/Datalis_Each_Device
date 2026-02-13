@@ -6,7 +6,7 @@ import {
   BsBuilding,
 } from "react-icons/bs";
 import { HiChevronDown } from "react-icons/hi";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
 export default function Header({

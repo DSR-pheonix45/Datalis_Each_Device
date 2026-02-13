@@ -8,11 +8,6 @@ export default function Hero() {
   const containerRef = useRef(null);
   const { theme } = useTheme();
 
-  const isLocalhost = 
-    window.location.hostname === 'localhost' || 
-    window.location.hostname === '127.0.0.1' || 
-    window.location.hostname === '';
-
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end start"],
@@ -94,7 +89,7 @@ export default function Hero() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10"
           >
             <Link
-              to={isLocalhost ? "/signup" : "/maintenance"}
+              to="/signup"
               onClick={() => track('try_datalis_free_clicked')}
               className={`inline-block px-10 py-4 text-base font-semibold text-black bg-[#81E6D9] rounded-full border border-[#81E6D9] hover:bg-transparent transition-all duration-200 ${theme === "dark"
                 ? "hover:text-white hover:border-white"

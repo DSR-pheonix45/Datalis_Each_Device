@@ -7,8 +7,9 @@ import {
   BsStars,
   BsChevronDown,
   BsChevronRight,
+  BsBuilding,
 } from "react-icons/bs";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../hooks/useAuth";
 
 import ChatSearch from "../ChatSearch";
 import { supabase } from "../../lib/supabase";
@@ -41,9 +42,9 @@ const SidebarButton = ({
     <button
       onClick={handleClick}
       className={`relative w-full flex items-center px-4 py-3 text-left transition-all duration-300 min-h-[44px] group ${isPrimary
-        ? "bg-gradient-to-r from-teal-500/10 to-cyan-500/10 border border-teal-500/20 text-white shadow-[0_0_15px_rgba(20,184,166,0.1)] hover:shadow-[0_0_20px_rgba(20,184,166,0.2)] hover:border-teal-500/40 hover:scale-[1.02] active:scale-[0.98] rounded-xl"
+        ? "bg-primary text-black shadow-[0_0_20px_rgba(0,255,209,0.3)] hover:shadow-[0_0_25px_rgba(0,255,209,0.5)] hover:scale-[1.02] active:scale-[0.98] rounded-xl"
         : isActive
-          ? "bg-teal-500/15 text-teal-400 border-l-2 border-teal-500 rounded-lg"
+          ? "bg-primary-300/15 text-primary-300 border-l-2 border-primary-300 rounded-lg"
           : "text-gray-400 hover:bg-white/5 hover:text-white rounded-lg"
         }`}
       style={{ fontSize: "14px", fontWeight: isPrimary ? "600" : "500" }}
@@ -53,18 +54,18 @@ const SidebarButton = ({
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 bg-gradient-to-b from-teal-400 to-cyan-500 rounded-r opacity-0 group-hover:h-6 group-hover:opacity-100 transition-all duration-200" />
       )}
       <IconComponent
-        className={`text-lg mr-4 flex-shrink-0 ${isPrimary ? "text-teal-400" : ""}`}
+        className={`text-lg mr-4 flex-shrink-0 ${isPrimary ? "text-black/80" : ""}`}
       />
       <div className="flex-1 flex flex-col justify-center">
         <span className="leading-tight">{children}</span>
         {subtitle && (
           <span
             className={`text-[10px] font-normal mt-0.5 leading-tight transition-colors ${isPrimary
-              ? "text-teal-200/60 group-hover:text-teal-100/80"
-              : isActive
-                ? "text-teal-400/60"
-                : "text-gray-500 group-hover:text-gray-400"
-              }`}
+                  ? "text-black/60 group-hover:text-black/80"
+                  : isActive
+                    ? "text-primary-300/60"
+                    : "text-gray-500 group-hover:text-gray-400"
+                  }`}
           >
             {subtitle}
           </span>
@@ -132,6 +133,7 @@ export default function Sidebar({
 
   const [expandedSections, setExpandedSections] = useState({
     history: false,
+    workbenches: true,
   });
 
   const toggleSection = (section) => {
@@ -141,25 +143,44 @@ export default function Sidebar({
     }));
   };
 
-
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
+  const [workbenches, setWorkbenches] = useState([]);
 
-  const fetchChatHistory = useCallback(async () => {
+  const fetchWorkbenches = useCallback(async () => {
     if (!user) return;
     try {
       const { data, error } = await supabase
-        .from("sessions")
+        .from("workbenches")
+        .select(`
+          *,
+          workbench_members!inner(user_id)
+        `)
+        .eq("workbench_members.user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setWorkbenches(data || []);
+    } catch (err) {
+      console.error("Error fetching workbenches:", err);
+    }
+  }, [user]);
+
+  const fetchChatHistory = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("chat_sessions")
         .select(
           `
           id,
           title,
-          created_at,
-          last_message_at
+          created_at
         `
         )
         .eq("user_id", user.id)
-        .order("last_message_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(10);
 
       if (error) {
@@ -179,6 +200,7 @@ export default function Sidebar({
 
   useEffect(() => {
     fetchChatHistory();
+    fetchWorkbenches();
 
     // Keyboard shortcut for search (Ctrl+K)
     const handleKeyDown = (e) => {
@@ -199,13 +221,13 @@ export default function Sidebar({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("chatHistoryUpdated", handleChatHistoryUpdate);
     };
-  }, [user, fetchChatHistory]);
+  }, [user, fetchChatHistory, fetchWorkbenches]);
 
   const loadChatSession = async (sessionId) => {
     try {
       // Fetch all messages for this session
       const { data, error } = await supabase
-        .from("messages")
+        .from("chat_messages")
         .select("*")
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true });
@@ -289,6 +311,19 @@ export default function Sidebar({
             </span>
           </button>
 
+          {/* Workbenches Icon */}
+          <button
+            onClick={() => navigate("/dashboard/workbenches")}
+            className="p-3 text-[#7D8590] hover:bg-[#161B22] hover:text-[#E6EDF3] rounded-lg transition-all group relative"
+            title="Workbenches"
+            aria-label="View workbenches"
+          >
+            <BsBuilding className="text-xl" />
+            <span className="absolute left-full ml-2 px-2 py-1 bg-[#161B22] border border-[#21262D] text-[#E6EDF3] text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              Workbenches
+            </span>
+          </button>
+
           {/* Spacer */}
           <div className="flex-1"></div>
 
@@ -338,6 +373,44 @@ export default function Sidebar({
           {/* Expandable Sections - Scrollable area */}
           <div className="flex-1 min-h-0 overflow-y-auto pb-4">
             <ExpandableSection
+              title="Workbenches"
+              isExpanded={expandedSections.workbenches}
+              onToggle={() => toggleSection("workbenches")}
+              badge={workbenches.length}
+            >
+              {workbenches.length > 0 ? (
+                <div className="space-y-1">
+                  {workbenches.map((wb) => (
+                    <div
+                      key={wb.id}
+                      onClick={() => navigate(`/dashboard/workbenches/${wb.id}`)}
+                      className="px-3 py-2 text-gray-300 hover:bg-[#161B22] hover:text-white rounded-md transition-colors cursor-pointer group flex items-center justify-between"
+                    >
+                      <span className="text-sm truncate flex-1">{wb.name}</span>
+                      <BsBuilding className="text-xs opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => navigate("/dashboard/workbenches")}
+                    className="w-full text-left px-3 py-1.5 text-xs text-teal-400 hover:text-teal-300 transition-colors mt-1"
+                  >
+                    View all →
+                  </button>
+                </div>
+              ) : (
+                <div className="text-gray-400 text-xs py-1 px-1">
+                  <p className="mb-2">No workbenches yet</p>
+                  <button
+                    onClick={() => navigate("/dashboard/workbenches")}
+                    className="text-teal-400 hover:text-teal-300 underline"
+                  >
+                    Create your first
+                  </button>
+                </div>
+              )}
+            </ExpandableSection>
+
+            <ExpandableSection
               title="History"
               isExpanded={expandedSections.history}
               onToggle={() => toggleSection("history")}
@@ -358,7 +431,7 @@ export default function Sidebar({
                         <BsChat className="text-xs opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                       <span className="text-xs text-gray-500 mt-1 block">
-                        {new Date(session.last_message_at).toLocaleDateString()}
+                        {new Date(session.created_at).toLocaleDateString()}
                       </span>
                     </div>
                   ))}
@@ -394,8 +467,8 @@ export default function Sidebar({
                 <p className="text-sm text-[#FFFFFF] truncate">
                   {user?.user_metadata?.full_name || user?.user_metadata?.username || user?.email || "User"}
                 </p>
-                <p className="text-xs text-[#9BA3AF]">
-                  {user?.email || "user@example.com"}
+                <p className="text-xs text-[#9BA3AF] truncate">
+                  {user?.email || ""}
                 </p>
               </div>
             </div>

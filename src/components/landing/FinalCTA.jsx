@@ -171,9 +171,7 @@ export default function FinalCTA() {
             className="px-6 md:px-0"
           >
             <a
-              href="https://calendly.com/medhansh_k/mk-101"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/signup"
               className={`w-full sm:w-auto inline-block px-8 md:px-10 py-3.5 md:py-4 text-base md:text-lg font-semibold text-black bg-[#81E6D9] rounded-full border border-[#81E6D9] hover:bg-transparent transition-all duration-200 ${isDark
                   ? "hover:text-white hover:border-white"
                   : "hover:text-[#1a1a1a] hover:border-[#1a1a1a]"

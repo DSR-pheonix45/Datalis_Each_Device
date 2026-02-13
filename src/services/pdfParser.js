@@ -23,22 +23,66 @@ function formatFileSize(bytes) {
 export async function extractPdfText(file, options = {}) {
   const config = { ...DEFAULT_OPTIONS, ...options };
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await getDocument({ data: arrayBuffer }).promise;
+  
+  let pdf;
+  try {
+    pdf = await getDocument({ data: arrayBuffer }).promise;
+  } catch (error) {
+    if (error.name === 'PasswordException') {
+      return `PDF Document: ${file.name}\nError: This PDF is password protected and cannot be read.`;
+    }
+    throw error;
+  }
 
   const pageLimit = Math.min(pdf.numPages, config.maxPages);
   let extractedText = [];
   let totalChars = 0;
+  let hasAnyText = false;
 
   for (let pageNum = 1; pageNum <= pageLimit; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const content = await page.getTextContent();
-    let pageText = content.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ");
+    
+    if (content.items.length === 0) {
+      extractedText.push(`--- Page ${pageNum} ---\n[Image-based or Empty Page]`);
+      continue;
+    }
 
-    pageText = pageText.replace(/\s+/g, " ").trim();
-    if (!pageText) continue;
+    // Sort items by vertical position (top to bottom) then horizontal (left to right)
+    const items = content.items.map(item => ({
+      str: item.str || "",
+      x: item.transform[4],
+      y: item.transform[5],
+      height: item.height
+    }));
 
+    // Group items by line (similar y coordinate)
+    const lines = {};
+    items.forEach(item => {
+      // Round y to nearest integer to group items on the same line
+      const y = Math.round(item.y);
+      if (!lines[y]) lines[y] = [];
+      lines[y].push(item);
+    });
+
+    // Sort lines by y (descending for PDF coordinate system)
+    const sortedY = Object.keys(lines).sort((a, b) => b - a);
+    
+    let pageText = sortedY.map(y => {
+      // Sort items within line by x (left to right)
+      return lines[y]
+        .sort((a, b) => a.x - b.x)
+        .map(item => item.str)
+        .join(" ");
+    }).join("\n");
+
+    pageText = pageText.trim();
+    if (!pageText) {
+      extractedText.push(`--- Page ${pageNum} ---\n[No readable text found]`);
+      continue;
+    }
+
+    hasAnyText = true;
     const remainingChars = config.maxCharacters - totalChars;
     if (remainingChars <= 0) break;
 
@@ -57,9 +101,13 @@ export async function extractPdfText(file, options = {}) {
         } not included in this preview.`
       : "";
 
-  return `PDF Document: ${file.name}\nPages: ${pdf.numPages}\nSize: ${formatFileSize(
-    file.size
-  )}\n(Preview limited to ${config.maxPages} pages / ${
-    config.maxCharacters
-  } characters)\n\n${extractedText.join("\n\n")}${previewNotice}`;
+  let resultPrefix = `PDF Document: ${file.name}\nPages: ${pdf.numPages}\nSize: ${formatFileSize(file.size)}\n`;
+  
+  if (!hasAnyText) {
+    resultPrefix += `⚠️ WARNING: This PDF appears to be a scanned image or contains no extractable text layer. Please provide a text-based PDF or CSV for better results.\n\n`;
+  } else {
+    resultPrefix += `(Preview limited to ${config.maxPages} pages / ${config.maxCharacters} characters)\n\n`;
+  }
+
+  return `${resultPrefix}${extractedText.join("\n\n")}${previewNotice}`;
 }

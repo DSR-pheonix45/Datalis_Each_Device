@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { BsX, BsStarFill, BsStar, BsChatLeftText, BsCheck2Circle } from "react-icons/bs";
 import { supabase } from "../../lib/supabase";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../hooks/useAuth";
 import toast from "react-hot-toast";
 
 export default function FeedbackModal({ isOpen, onClose, sessionId }) {

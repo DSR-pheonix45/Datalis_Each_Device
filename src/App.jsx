@@ -40,6 +40,7 @@ const OAuthCallback = lazy(() => import("./Auth/OAuthCallback"));
 // Protected Components
 const MainApp = lazy(() => import("./components/MainApp"));
 const Settings = lazy(() => import("./components/Settings/Settings"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
 
 // Loading Component
 const PageLoader = () => (
@@ -65,12 +66,6 @@ function LandingLayout({ children }) {
   );
 }
 
-const isLocalhost = true; // Forced to true temporarily
-// const isLocalhost = 
-//   window.location.hostname === 'localhost' || 
-//   window.location.hostname === '127.0.0.1' || 
-//   window.location.hostname === '';
-
 function App() {
   return (
     <Router>
@@ -82,9 +77,14 @@ function App() {
               {/* Public Landing Pages with Persistent Layout */}
               <Route element={<LandingLayout><Outlet /></LandingLayout>}>
                 <Route path="/" element={<Home />} />
-                <Route path="/login" element={isLocalhost ? <Login /> : <Maintenance />} />
-                <Route path="/signup" element={isLocalhost ? <Signup /> : <Maintenance />} />
-                <Route path="/maintenance" element={isLocalhost ? <Navigate to="/" replace /> : <Maintenance />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/maintenance" element={<Maintenance />} />
+                <Route path="/onboarding" element={
+                  <ProtectedRoute>
+                    <Onboarding />
+                  </ProtectedRoute>
+                } />
                 <Route path="/product" element={<Product />} />
                 <Route path="/templates" element={<Templates />} />
                 <Route path="/templates/invoice" element={<InvoiceGenerator />} />
@@ -105,24 +105,20 @@ function App() {
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/payment-coming-soon" element={<PaymentComingSoon />} />
               </Route>
-              <Route path="/oauth/callback" element={isLocalhost ? <OAuthCallback /> : <Maintenance />} />
-              <Route path="/auth/callback" element={isLocalhost ? <OAuthCallback /> : <Maintenance />} />
+              <Route path="/oauth/callback" element={<OAuthCallback />} />
+              <Route path="/auth/callback" element={<OAuthCallback />} />
 
               {/* Protected Dashboard Routes */}
               <Route
                 path="/dashboard/*"
                 element={
-                  isLocalhost ? (
-                    <ProtectedRoute>
-                      <Suspense fallback={<PageLoader />}>
-                        <ErrorBoundary>
-                          <MainApp />
-                        </ErrorBoundary>
-                      </Suspense>
-                    </ProtectedRoute>
-                  ) : (
-                    <Maintenance />
-                  )
+                  <ProtectedRoute>
+                    <Suspense fallback={<PageLoader />}>
+                      <ErrorBoundary>
+                        <MainApp />
+                      </ErrorBoundary>
+                    </Suspense>
+                  </ProtectedRoute>
                 }
               />
 

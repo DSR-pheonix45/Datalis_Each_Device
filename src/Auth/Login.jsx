@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from "../context/AuthContext";
-import { AlertCircle, Loader } from 'lucide-react';
+import { useAuth } from "../hooks/useAuth";
+import { AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { supabase } from '../lib/supabase';
 import BrandLogo from '../components/common/BrandLogo';
@@ -11,13 +11,63 @@ export default function Login() {
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  
   // Redirect if already logged in
   useEffect(() => {
     if (user && !authLoading) {
       navigate('/dashboard');
     }
   }, [user, authLoading, navigate]);
+
+  const handleEmailLogin = async (e) => {
+    e.preventDefault();
+    
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      setError("Please enter both email and password.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
+
+      if (error) {
+        // Handle specific Supabase error cases
+        const errorMessage = error.message.toLowerCase();
+        console.error('Supabase Auth Error:', error);
+
+        if (errorMessage.includes("email not confirmed")) {
+          setError("Please confirm your email address. Check your inbox for the verification link.");
+        } else if (errorMessage.includes("invalid login credentials")) {
+          setError("Invalid email or password. If you signed up with Google, please use the 'Continue with Google' button below.");
+        } else if (error.status === 400) {
+          setError("Invalid email or password. Please try again.");
+        } else {
+          setError(error.message);
+        }
+        return; // Don't throw, just return so finally block runs
+      }
+      
+      if (data?.user) {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      console.error('Login implementation error:', err);
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     try {
@@ -36,6 +86,30 @@ export default function Login() {
     } catch (error) {
       console.error('Google sign-in error:', error);
       setError('Failed to sign in with Google. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setError("Please enter your email address first.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+      setResetSent(true);
+      alert("Password reset link sent to your email!");
+    } catch (err) {
+      console.error('Reset password error:', err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -80,7 +154,74 @@ export default function Login() {
           </div>
         )}
 
-        <div className="mt-8 space-y-6">
+        <form onSubmit={handleEmailLogin} className="mt-8 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1.5" htmlFor="email">
+              Email Address
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@company.com"
+              className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#00FFD1]/50 focus:border-[#00FFD1] transition-all"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-medium text-gray-400" htmlFor="password">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-xs text-[#00FFD1] hover:underline"
+              >
+                Forgot password?
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#00FFD1]/50 focus:border-[#00FFD1] transition-all pr-11"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#00FFD1] text-black py-2.5 rounded-md hover:bg-[#00FFD1]/90 transition-all disabled:opacity-70 font-bold mt-2"
+          >
+            {loading ? <Loader className="w-5 h-5 animate-spin mx-auto" /> : 'Sign In'}
+          </button>
+        </form>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-white/10"></div>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-[#0a0a0a] px-2 text-gray-500">Or continue with</span>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-4">
           <button
             type="button"
             onClick={handleGoogleSignIn}
@@ -92,7 +233,7 @@ export default function Login() {
             ) : (
               <FcGoogle className="w-6 h-6" />
             )}
-            <span>{loading ? 'Connecting...' : 'Continue with Google'}</span>
+            <span>Continue with Google</span>
           </button>
 
           <p className="text-center text-xs text-gray-500">

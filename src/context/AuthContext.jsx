@@ -1,146 +1,109 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { AuthContext } from './AuthContextBase';
 import { signOut, getCurrentUser, onAuthStateChange, supabase } from '../lib/supabase';
-
-// Create context with default values
-const AuthContext = createContext({
-  user: null,
-  setUser: () => {},
-  loading: true,
-  signOut: () => {}
-});
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch profile when user changes
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (user?.id) {
-        try {
-          // Try to fetch with plans join first
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('*, plan:plans(*)')
-            .eq('id', user.id)
-            .single();
-          
-          if (!error && data) {
-            setProfile(data);
-          } else if (error) {
-            // If the error is "no rows found", it's a new user
-            if (error.code === 'PGRST116') {
-              console.log('No profile found for user, initializing new user profile state');
-              setProfile({ 
-                id: user.id, 
-                email: user.email, 
-                plans: { name: 'Free' },
-                onboarding_completed: false 
-              });
-              return;
-            }
+  /**
+   * Fetch user profile safely
+   */
+  const fetchUserProfile = async (userId) => {
+    if (!userId) {
+      setProfile(null);
+      return;
+    }
 
-            // If join fails (e.g. 500) but profile might exist, try fetching profile without join
-            console.warn('Profile join with plans failed, trying without join:', error.message);
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', user.id)
-              .single();
-            
-            if (!profileError && profileData) {
-              setProfile({ ...profileData, plans: { name: 'Free' } }); // Default plan
-            } else if (profileError?.code === 'PGRST116') {
-              // No profile found even without join
-              setProfile({ 
-                id: user.id, 
-                email: user.email, 
-                plans: { name: 'Free' },
-                onboarding_completed: false 
-              });
-            } else {
-              console.error('Failed to fetch profile due to database error:', profileError);
-              // Do NOT set onboarding_completed to false here, as it might be a temporary DB error
-              // for an existing user. Keep profile as null or set a loading/error state.
-              // For now, we'll keep it as null to avoid accidental onboarding triggers.
-              setProfile(null);
-            }
-          }
-        } catch (err) {
-          console.error('Error fetching profile in AuthContext:', err);
-          // Do not assume onboarding is not completed on generic error
-          setProfile(null);
-        }
-      } else {
+    console.log("[DEBUG] AuthProvider: Fetching profile for", userId);
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('[DEBUG] AuthProvider: Profile fetch error:', error);
         setProfile(null);
+      } else if (!data) {
+        console.log("[DEBUG] AuthProvider: Profile missing, using partial fallback");
+        setProfile({
+          user_id: userId,
+          status: 'partial',
+          role: 'founder'
+        });
+      } else {
+        console.log("[DEBUG] AuthProvider: Profile response:", data);
+        setProfile(data);
       }
-    };
+    } catch (err) {
+      console.error('[DEBUG] AuthProvider: Unexpected profile fetch error:', err);
+      setProfile(null);
+    }
+  };
 
-    fetchProfile();
-  }, [user?.id]);
-
-  // Listen to auth state changes
+  /**
+   * Initial session check
+   */
   useEffect(() => {
-    // Get initial session
-    const getInitialSession = async () => {
+    const initAuth = async () => {
+      console.log("[DEBUG] AuthProvider: initAuth starting...");
       try {
         const { user, error } = await getCurrentUser();
+
         if (error && error !== 'Auth session missing!') {
-          console.error('Error getting initial session:', error);
-        } else {
-          setUser(user);
+          console.error('[DEBUG] AuthProvider: Error getting session:', error);
         }
-      } catch (error) {
-        console.error('Error getting initial session:', error);
+
+        if (user) {
+          console.log("[DEBUG] AuthProvider: User found in session:", user.id);
+          setUser(user);
+          await fetchUserProfile(user.id);
+        } else {
+          console.log("[DEBUG] AuthProvider: No user session found");
+        }
+      } catch (err) {
+        console.error('[DEBUG] AuthProvider: Unexpected init error:', err);
       } finally {
+        console.log("[DEBUG] AuthProvider: initAuth complete, setting loading to false");
         setLoading(false);
       }
     };
 
-    getInitialSession();
+    initAuth();
 
-    // Listen for auth changes. onAuthStateChange may return a structure like
-    // { data: { subscription } } or a no-op/stub where data may be null.
-    // Avoid destructuring into null to prevent runtime errors.
-    const listener = typeof onAuthStateChange === 'function'
-      ? onAuthStateChange(async (event, session) => {
-          console.log('Auth state changed:', event, session?.user?.email);
+    const { data: listener } = onAuthStateChange((event, session) => {
+      console.log('Auth event:', event);
 
-          if (event === 'SIGNED_IN') {
-            setUser(session.user);
-          } else if (event === 'SIGNED_OUT') {
-            setUser(null);
-          } else if (event === 'TOKEN_REFRESHED') {
-            setUser(session.user);
-          }
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        if (session?.user) {
+          console.log("[DEBUG] AuthProvider: Handling SIGNED_IN/UPDATE, setting loading=true");
+          setLoading(true);
+          setUser(session.user);
+          fetchUserProfile(session.user.id).finally(() => {
+            console.log("[DEBUG] AuthProvider: Profile fetch complete, setting loading=false");
+            setLoading(false);
+          });
+        }
+      }
 
-          setLoading(false);
-        })
-      : null;
-
-    // Try to find a subscription object or an unsubscribe function in the
-    // returned listener to clean up when component unmounts.
-    const subscription = listener?.data?.subscription ?? null;
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+      }
+    });
 
     return () => {
-      try {
-        if (subscription && typeof subscription.unsubscribe === 'function') {
-          subscription.unsubscribe();
-        } else if (listener && typeof listener.unsubscribe === 'function') {
-          // Some implementations return an object with an unsubscribe method
-          listener.unsubscribe();
-        } else if (typeof listener === 'function') {
-          // Some libraries return an unsubscribe function directly
-          listener();
-        }
-      } catch (err) {
-        // Swallow errors in cleanup to avoid throwing during unmount
-        console.warn('Failed to unsubscribe auth listener:', err);
-      }
+      listener?.subscription?.unsubscribe?.();
     };
   }, []);
 
+  /**
+   * Sign out handler
+   */
   const handleSignOut = async () => {
     try {
       setLoading(true);
@@ -150,7 +113,7 @@ export function AuthProvider({ children }) {
       return { success: true };
     } catch (error) {
       console.error('Sign out error:', error);
-      return { success: false, error: 'An unexpected error occurred during sign out.' };
+      return { success: false };
     } finally {
       setLoading(false);
     }
@@ -170,8 +133,4 @@ export function AuthProvider({ children }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  return useContext(AuthContext);
 }

@@ -7,17 +7,20 @@ import ActionCards from "./ActionCards/ActionCards";
 import ChatInput from "./ChatInput/ChatInput";
 import ChatArea from "./ChatArea/ChatArea";
 import { useTheme } from "../context/ThemeContext";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import Settings from "./Settings/Settings";
+import Workbenches from "../pages/Workbenches";
+import WorkbenchDetail from "../pages/WorkbenchDetail";
 import OnboardingTour from "./Onboarding/OnboardingTour";
 import FeedbackModal from "./ChatArea/FeedbackModal";
+import { backendService } from "../services/backendService";
 import { supabase } from "../lib/supabase";
 import { BsRocketTakeoff } from "react-icons/bs";
 
 export default function MainApp() {
   useTheme(); // Theme context is used for side effects
   const location = useLocation();
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -25,6 +28,8 @@ export default function MainApp() {
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [currentContext, setCurrentContext] = useState("");
+  const [activeWorkbench, setActiveWorkbench] = useState(null);
+  const [availableWorkbenches, setAvailableWorkbenches] = useState([]);
   const [isInConversation, setIsInConversation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showTour, setShowTour] = useState(false);
@@ -34,14 +39,16 @@ export default function MainApp() {
 
   // Auto-show onboarding tour for new users who just completed the onboarding form
   useEffect(() => {
+    if (authLoading) return;
+    
     const hasCompletedOnboarding = localStorage.getItem("dabby_onboarding_completed");
     const justOnboarded = location.state?.fromOnboarding;
     
     // Only show the tour if they just finished the onboarding form 
     // OR if it's a first-time user on this device who hasn't seen it yet
-    // BUT we check if they are actually a new user by looking at profile.onboarding_completed
+    // BUT we check if they are actually a new user by looking at profile.status
     // Actually, if they just onboarded, they definitely should see it.
-    if (justOnboarded || (!hasCompletedOnboarding && user?.id && profile?.onboarding_completed === false)) {
+    if (justOnboarded || (!hasCompletedOnboarding && user?.id && profile?.status === 'partial')) {
       const timer = setTimeout(() => {
         setShowTour(true);
         // Clear the state so it doesn't trigger again on refresh
@@ -51,12 +58,19 @@ export default function MainApp() {
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [user?.id, location.state, profile?.onboarding_completed]);
+  }, [user?.id, location.state, profile?.status, authLoading]);
 
   const handleTourComplete = () => {
     setShowTour(false);
     localStorage.setItem("dabby_onboarding_completed", "true");
   };
+
+  // Auto-persist context to localStorage
+  useEffect(() => {
+    if (currentSessionId && currentContext) {
+      localStorage.setItem(`dabby_context_${currentSessionId}`, currentContext);
+    }
+  }, [currentContext, currentSessionId]);
 
   // Listen for clearChat event from sidebar
   useEffect(() => {
@@ -78,6 +92,28 @@ export default function MainApp() {
       setCurrentSessionId(sessionId);
       setMessages(sessionMessages);
       setIsInConversation(true);
+      
+      // Load persisted context for this session
+      const savedContext = localStorage.getItem(`dabby_context_${sessionId}`);
+      
+      // Extract uploaded files from session messages to restore uploadedFiles state
+      const allUploadedFiles = sessionMessages
+        .filter(m => m.options?.uploadedFiles?.length > 0)
+        .flatMap(m => m.options.uploadedFiles);
+      setUploadedFiles(allUploadedFiles);
+
+      if (savedContext) {
+        setCurrentContext(savedContext);
+      } else {
+        // If no saved context, try to rebuild it from messages that had files
+        const fileMessages = sessionMessages.filter(m => m.options?.uploadedFiles?.length > 0);
+        if (fileMessages.length > 0) {
+          console.log("Found messages with files, context might need rebuilding.");
+          // We can't easily rebuild it here without re-processing files, 
+          // but at least we know it's missing.
+        }
+        setCurrentContext("");
+      }
     };
 
     window.addEventListener("clearChat", handleClearChat);
@@ -92,8 +128,8 @@ export default function MainApp() {
   // Auto-save chat session and generate summary
   const saveChatSession = async (sessionMessages) => {
     // Don't store chat sessions if user hasn't completed onboarding (e.g. "Try Chat" users)
-    if (!user?.id || sessionMessages.length < 2 || profile?.onboarding_completed === false) {
-      if (profile?.onboarding_completed === false) {
+    if (!user?.id || sessionMessages.length < 2 || profile?.status === 'partial') {
+      if (profile?.status === 'partial') {
         console.log("Chat session not saved: Onboarding incomplete");
       }
       return;
@@ -107,54 +143,40 @@ export default function MainApp() {
         (firstUserMessage.content.length > 50 ? "..." : "")
         : "Untitled Chat";
 
-      // Create or update session
-      let sessionId = currentSessionId;
+      // Check if in Workbench context
+      const currentPath = window.location.pathname;
+      const workbenchMatch = currentPath.match(/\/workbenches\/([^/]+)/); 
+      // Prefer manually selected active workbench, fallback to URL match
+      const workbenchId = activeWorkbench?.active ? activeWorkbench.id : (workbenchMatch ? workbenchMatch[1] : null);
 
-      if (!sessionId) {
-        // Create new session
-        const sessionData = {
-          user_id: user.id,
-          title,
-          last_message_at: new Date().toISOString(),
-        };
-        console.log("Inserting new session with user.id:", user.id);
-        console.log("Session data:", sessionData);
-        const { data, error } = await supabase
-          .from("sessions")
-          .insert(sessionData)
-          .select()
-          .single();
-
-        if (error) throw error;
-        sessionId = data.id;
-        setCurrentSessionId(sessionId);
-      } else {
-        // Update existing session
-        await supabase
-          .from("sessions")
-          .update({ last_message_at: new Date().toISOString() })
-          .eq("id", sessionId);
+      let sessionIdToUse = currentSessionId;
+      if (!sessionIdToUse) {
+        const session = await backendService.createChatSession(title, workbenchId);
+        sessionIdToUse = session.id;
+        setCurrentSessionId(sessionIdToUse);
       }
 
       // Save the latest message
       const latestMessage = sessionMessages[sessionMessages.length - 1];
-      await supabase.from("messages").insert({
-        session_id: sessionId,
-        user_id: user.id,
-        role: latestMessage.role,
-        content: latestMessage.content,
-        metadata: {
-          timestamp: latestMessage.timestamp,
-          sender: latestMessage.sender,
-          files: latestMessage.options?.uploadedFiles?.map(f => ({
-            name: f.name,
-            size: f.size,
-            type: f.type
-          })) || [],
-        },
-      });
+      const metadata = {
+        timestamp: latestMessage.timestamp,
+        sender: latestMessage.sender,
+        files: latestMessage.options?.uploadedFiles?.map(f => ({
+          name: f.name,
+          size: f.size,
+          type: f.type
+        })) || [],
+      };
 
-      console.log("Chat session saved:", sessionId);
+      await backendService.saveChatMessage(
+        sessionIdToUse,
+        latestMessage.role,
+        latestMessage.content,
+        metadata,
+        workbenchId
+      );
+
+      console.log("Chat session saved via Edge Function:", sessionIdToUse);
 
       // Trigger sidebar refresh
       window.dispatchEvent(new Event("chatHistoryUpdated"));
@@ -162,6 +184,78 @@ export default function MainApp() {
       console.error("Error saving chat session:", error);
     }
   };
+
+  // Fetch all available workbenches for context selection
+  useEffect(() => {
+    const fetchAllWorkbenches = async () => {
+      if (authLoading || !user?.id) return;
+      
+      console.log("[DEBUG] MainApp: Fetching workbenches for user", user.id);
+      try {
+        const { data, error } = await supabase
+          .from("workbenches")
+          .select(`
+            id, 
+            name,
+            workbench_members!inner(user_id)
+          `)
+          .eq("workbench_members.user_id", user.id)
+          .order("created_at", { ascending: false });
+        
+        if (error) {
+          console.error("[DEBUG] MainApp: Error fetching workbenches:", error);
+        } else {
+          console.log("[DEBUG] MainApp: Workbenches response:", data);
+          setAvailableWorkbenches(data || []);
+        }
+      } catch (err) {
+        console.error("[DEBUG] MainApp: Unexpected error fetching workbenches:", err);
+      }
+    };
+    fetchAllWorkbenches();
+  }, [user?.id, authLoading]);
+
+  // Handle workbench context toggle from ChatInput
+  const handleToggleWorkbenchContext = (workbench = null) => {
+    if (workbench) {
+      // If a specific workbench is provided, set it as active
+      setActiveWorkbench({ ...workbench, active: true });
+    } else if (activeWorkbench) {
+      // Otherwise toggle the current active workbench
+      setActiveWorkbench(prev => ({ ...prev, active: !prev.active }));
+    }
+  };
+
+  // Sync activeWorkbench when navigating to/from workbench detail
+  useEffect(() => {
+    const workbenchMatch = location.pathname.match(/\/workbenches\/([^/]+)/);
+    if (workbenchMatch) {
+      const id = workbenchMatch[1];
+      // Fetch workbench details if we don't have them or it's a different workbench
+      if (!activeWorkbench || activeWorkbench.id !== id) {
+        const fetchWorkbench = async () => {
+          try {
+            const { data, error } = await supabase
+              .from("workbenches")
+              .select("id, name")
+              .eq("id", id)
+              .single();
+            if (!error && data) {
+              setActiveWorkbench({ ...data, active: true });
+            }
+          } catch (err) {
+            console.error("Error fetching workbench for chat context:", err);
+          }
+        };
+        fetchWorkbench();
+      }
+    } else {
+      // If we leave the workbench detail page, we might want to keep the context active 
+      // but allow the user to toggle it off. For now, let's keep it if it was active.
+      // Or we can clear it if you want context to be page-specific.
+      // setActiveWorkbench(null); 
+    }
+  }, [location.pathname, activeWorkbench]);
 
   const handleSendMessage = async (
     message,
@@ -212,6 +306,7 @@ export default function MainApp() {
     let loadingId = null;
 
     if (hasFiles) {
+      setUploadedFiles(prev => [...prev, ...options.uploadedFiles]);
       const fileNames = options.uploadedFiles.map((f) => f.name).join(", ");
       const loadingMsg = message.trim()
         ? `Analyzing files: ${fileNames}...`
@@ -234,23 +329,58 @@ export default function MainApp() {
     try {
       const { callLLMWithFallback } = await import("../services/llmService.js");
 
+      // Build context for workbench if active
+      let workbenchData = null;
+      if (options.workbenchId) {
+        try {
+          // Fetch essential workbench data to include in prompt
+          const [
+            { data: workbench },
+            { data: cash },
+            { data: payables },
+            { data: receivables }
+          ] = await Promise.all([
+            supabase.from('workbenches').select('*').eq('id', options.workbenchId).maybeSingle(),
+            supabase.from('view_cash_position').select('*').eq('workbench_id', options.workbenchId).maybeSingle(),
+            supabase.from('view_payables').select('*').eq('workbench_id', options.workbenchId),
+            supabase.from('view_receivables').select('*').eq('workbench_id', options.workbenchId)
+          ]);
+          
+          workbenchData = {
+            name: workbench?.name || "Unknown Workbench",
+            cash_position: cash?.balance || 0,
+            total_payables: payables?.reduce((sum, p) => sum + p.total_amount, 0) || 0,
+            total_receivables: receivables?.reduce((sum, r) => sum + r.total_amount, 0) || 0,
+            summary: workbench 
+              ? `This is the financial workbench for ${workbench.name}. Current cash position is ₹${cash?.balance || 0}. Total Payables: ₹${payables?.reduce((sum, p) => sum + p.total_amount, 0) || 0}. Total Receivables: ₹${receivables?.reduce((sum, r) => sum + r.total_amount, 0) || 0}.`
+              : "No workbench data found."
+          };
+          console.log("[DEBUG] Workbench context built:", workbenchData);
+        } catch (ctxError) {
+          console.error("[DEBUG] Error building workbench context:", ctxError);
+        }
+      }
+
+      // Prioritize workbench context by putting it at the TOP of the context string
+      const contextPrefix = workbenchData 
+        ? `=== WORKBENCH CONTEXT: ${workbenchData.name} ===\n${JSON.stringify(workbenchData, null, 2)}\n\n`
+        : "";
+
       const llmResponse = await callLLMWithFallback({
         query: llmQuery, // Use the processed query
-        context: currentContext, // Pass current context
+        context: contextPrefix + currentContext, 
         web_search: options.web || false,
         uploaded_files: options.uploadedFiles || [], // Pass File objects for frontend processing
         history: messages,
+        workbench_id: options.workbenchId
       });
 
       if (llmResponse.error) {
         throw new Error(llmResponse.error);
       }
 
-      // Update current context if new files were processed (uploaded)
-      if (
-        llmResponse.context &&
-        (options.uploadedFiles && options.uploadedFiles.length > 0)
-      ) {
+      // Update current context if returned (always keep the latest context)
+      if (llmResponse.context) {
         setCurrentContext(llmResponse.context);
       }
 
@@ -389,19 +519,22 @@ export default function MainApp() {
         />
 
         {/* Main Dashboard Content */}
-        <div className="flex-1 min-h-0 overflow-auto pb-[120px] sm:pb-[100px] lg:pb-0">
+        <div className="flex-1 min-h-0 overflow-auto pb-[120px] sm:pb-[100px] lg:pb-0 relative">
           <Routes>
             <Route
               index
               element={
                 isInConversation ? (
                   <ChatArea
-                    messages={messages}
-                    isLoading={isLoading}
-                    chatContainerRef={chatContainerRef}
-                    onSendMessage={handleSendMessage}
-                    uploadedFiles={uploadedFiles}
-                  />
+                      messages={messages}
+                      isLoading={isLoading}
+                      chatContainerRef={chatContainerRef}
+                      onSendMessage={handleSendMessage}
+                      uploadedFiles={uploadedFiles}
+                      workbenchContext={activeWorkbench}
+                      availableWorkbenches={availableWorkbenches}
+                      onToggleWorkbenchContext={handleToggleWorkbenchContext}
+                    />
                 ) : (
                   <>
                     <WelcomeSection />
@@ -424,18 +557,23 @@ export default function MainApp() {
               }
             />
             <Route path="settings" element={<Settings />} />
+            <Route path="workbenches" element={<Workbenches />} />
+            <Route path="workbenches/:id" element={<WorkbenchDetail />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>
 
-        {/* Chat Input - only show when not in conversation AND not on settings page */}
         {!isInConversation && 
-         !location.pathname.includes("/settings") && (
+         !location.pathname.includes("/settings") && 
+         !location.pathname.includes("/workbenches") && (
           <ChatInput
             ref={chatInputRef}
             onSendMessage={handleSendMessage}
             webSearchEnabled={webSearchEnabled}
             uploadedFiles={uploadedFiles}
+            workbenchContext={activeWorkbench}
+            availableWorkbenches={availableWorkbenches}
+            onToggleWorkbenchContext={handleToggleWorkbenchContext}
           />
         )}
 

@@ -102,6 +102,14 @@ export default {
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' }
+        },
+        slideInFromBottom: {
+          '0%': { transform: 'translateY(0.5rem)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' }
+        },
+        loading: {
+          '0%': { width: '0%' },
+          '100%': { width: '100%' }
         }
       },
       animation: {
@@ -111,7 +119,9 @@ export default {
         borderShine: 'borderShine 3s linear infinite',
         float: 'float 6s ease-in-out infinite',
         // App animations
-        'fade-in': 'fadeIn 0.3s ease-in-out'
+        'fade-in': 'fadeIn 0.3s ease-in-out',
+        'slide-in-from-bottom-2': 'slideInFromBottom 0.5s ease-out',
+        'loading': 'loading 2s ease-in-out'
       }
     },
   },

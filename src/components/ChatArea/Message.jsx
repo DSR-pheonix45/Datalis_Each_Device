@@ -40,7 +40,7 @@ const Message = ({ message }) => {
     return (
         <div
             className={`mb-6 flex ${isUser ? "justify-end" : "justify-start"
-                } animate-slide-in group`}
+                } animate-in fade-in slide-in-from-bottom-2 duration-500 group`}
         >
             <div
                 className={`flex gap-3 max-w-[90%] xl:max-w-[85%] ${isUser ? "flex-row-reverse" : "flex-row"
@@ -150,7 +150,7 @@ const Message = ({ message }) => {
 
                                     {/* Suggestion Chips Section */}
                                     {chips.length > 0 && (
-                                        <div className="mt-6 flex flex-wrap gap-2 animate-fade-in border-t border-white/5 pt-4">
+                                        <div className="mt-6 flex flex-wrap gap-2 animate-in fade-in duration-500 border-t border-white/5 pt-4">
                                             <span className="text-[10px] uppercase tracking-wider text-gray-500 w-full mb-1 ml-1 font-semibold">Suggested Actions:</span>
                                             {chips.map((chip, idx) => (
                                                 <button
@@ -175,19 +175,7 @@ const Message = ({ message }) => {
                 </div>
             </div>
 
-            <style jsx>{`
-        @keyframes slide-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-slide-in { animation: slide-in 0.4s ease-out forwards; }
-        
-        @keyframes fade-in {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
-      `}</style>
+
         </div>
     );
 };

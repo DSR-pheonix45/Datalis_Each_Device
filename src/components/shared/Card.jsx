@@ -10,7 +10,7 @@ const variants = {
 
 export default function Card({
   children,
-  variant = "light",
+  variant = "dark",
   className = "",
   hover = true,
   ...props
@@ -19,7 +19,7 @@ export default function Card({
     <motion.div
       whileHover={hover ? { y: -4, scale: 1.02 } : {}}
       transition={{ duration: 0.3 }}
-      className={`rounded-3xl p-8 transition-all duration-300 ${variants[variant]} ${className}`}
+      className={`rounded-3xl transition-all duration-300 ${variants[variant]} ${className.includes('p-') ? '' : 'p-8'} ${className}`}
       {...props}
     >
       {children}

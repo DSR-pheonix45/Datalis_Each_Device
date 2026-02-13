@@ -7,6 +7,9 @@ const ChatArea = ({
   messages: propMessages,
   onSendMessage,
   uploadedFiles,
+  workbenchContext,
+  availableWorkbenches,
+  onToggleWorkbenchContext,
 }) => {
   // Map MainApp messages to ChatArea format (preserve role property)
   const chatMessages = useMemo(() => {
@@ -35,6 +38,9 @@ const ChatArea = ({
         onSendMessage={onSendMessage}
         uploadedFiles={uploadedFiles}
         placeholder="Ask Dabby Consultant anything..."
+        workbenchContext={workbenchContext}
+        availableWorkbenches={availableWorkbenches}
+        onToggleWorkbenchContext={onToggleWorkbenchContext}
       />
     </div>
   );

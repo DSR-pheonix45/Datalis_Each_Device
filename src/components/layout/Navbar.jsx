@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../hooks/useAuth";
 import BrandLogo from "../common/BrandLogo";
 
 export default function Navbar() {
@@ -28,15 +28,10 @@ export default function Navbar() {
 
   const isActive = (path) => location.pathname === path;
 
-  const isLocalhost = 
-    window.location.hostname === 'localhost' || 
-    window.location.hostname === '127.0.0.1' || 
-    window.location.hostname === '';
-
   return (
     <>
       {/* Product Launch Banner */}
-      <Link to={isLocalhost ? "/signup" : "/maintenance"} className="block bg-[#171717] py-2 px-4 text-center hover:bg-[#262626] transition-colors">
+      <Link to="/signup" className="block bg-[#171717] py-2 px-4 text-center hover:bg-[#262626] transition-colors">
         <div className="inline-flex items-center gap-2 text-sm font-mono font-medium text-white">
           <span className="uppercase tracking-wide">
             Dec. 31 Product Launch
@@ -234,7 +229,7 @@ export default function Navbar() {
 
             {user ? (
               <Link
-                to={isLocalhost ? "/dashboard" : "/maintenance"}
+                to="/dashboard"
                 className={`px-6 py-2 text-base font-mono font-medium text-black bg-[#81E6D9] rounded-full border border-[#81E6D9] hover:bg-transparent transition-all duration-200 ${theme === "dark"
                   ? "hover:text-white hover:border-white"
                   : "hover:text-[#1a1a1a] hover:border-[#1a1a1a]"
@@ -245,7 +240,7 @@ export default function Navbar() {
             ) : (
               <>
                 <Link
-                  to={isLocalhost ? "/signup" : "/maintenance"}
+                  to="/signup"
                   className={`px-6 py-2 text-base font-mono font-medium text-black bg-[#81E6D9] rounded-full border border-[#81E6D9] hover:bg-transparent transition-all duration-200 ${theme === "dark"
                     ? "hover:text-white hover:border-white"
                     : "hover:text-[#1a1a1a] hover:border-[#1a1a1a]"
@@ -254,7 +249,7 @@ export default function Navbar() {
                   Sign Up
                 </Link>
                 <Link
-                  to={isLocalhost ? "/login" : "/maintenance"}
+                  to="/login"
                   className={`text-base font-mono font-normal px-6 py-2 border rounded-full transition-all duration-200 ${theme === "dark"
                     ? "text-white border-white/30 "
                     : "text-[#292929] border-[#292929] "
