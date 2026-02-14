@@ -31,38 +31,98 @@ export default function BudgetingView({ workbenchId }) {
     try {
       setLoading(true);
 
+      let budgetData = [];
+
+      // Attempt 1: Try fetching from the View (Best for granular data)
       const { data, error } = await supabase
         .from('view_budget_vs_actual')
         .select('*')
         .eq('workbench_id', workbenchId);
 
-      if (error) throw error;
+      if (!error && data && data.length > 0) {
+        budgetData = data;
+      } else {
+        // Attempt 2: Fallback to raw 'budgets' table if view is empty/missing
+        // This handles cases where budget_items might be missing due to schema mismatch
+        const { data: rawBudgets, error: rawError } = await supabase
+          .from('budgets')
+          .select('*')
+          .eq('workbench_id', workbenchId);
 
-      if (data && data.length > 0) {
-        const totalBudgeted = data.reduce((sum, item) => sum + item.budgeted_amount, 0);
-        const totalActual = data.reduce((sum, item) => sum + item.actual_amount, 0);
-        const variance = totalBudgeted > 0 
+        if (rawBudgets && rawBudgets.length > 0) {
+          // Fetch Transactions to calculate Actuals
+          const { data: transactions } = await supabase
+            .from('transactions')
+            .select('amount, direction')
+            .eq('workbench_id', workbenchId);
+
+          // Fetch Adjustments
+          const { data: adjustments } = await supabase
+            .from('adjustments')
+            .select('adjustment_amount')
+            .eq('workbench_id', workbenchId);
+
+          // Calculate Net Spend
+          let netActualSpend = 0;
+          if (transactions) {
+            const debits = transactions.filter(t => t.direction === 'debit').reduce((s, t) => s + parseFloat(t.amount || 0), 0);
+            const credits = transactions.filter(t => t.direction === 'credit').reduce((s, t) => s + parseFloat(t.amount || 0), 0);
+            netActualSpend += (debits - credits);
+          }
+          if (adjustments) {
+            const adjTotal = adjustments.reduce((s, a) => s + parseFloat(a.adjustment_amount || 0), 0);
+            netActualSpend += adjTotal;
+          }
+
+          budgetData = rawBudgets.map((b, index) => ({
+            category: b.name, // Use budget name as category
+            budgeted_amount: parseFloat(b.total_amount || b.allocated_amount || 0),
+            actual_amount: index === 0 ? netActualSpend : 0, // Assign total to first budget
+            progress_percentage: 0
+          }));
+        } else if (rawError) {
+          console.warn("Error fetching raw budgets:", rawError);
+        }
+      }
+
+      if (budgetData.length > 0) {
+        const totalBudgeted = budgetData.reduce((sum, item) => sum + item.budgeted_amount, 0);
+        const totalActual = budgetData.reduce((sum, item) => sum + item.actual_amount, 0);
+        const variance = totalBudgeted > 0
           ? ((totalBudgeted - totalActual) / totalBudgeted * 100).toFixed(1)
           : 0;
 
+        const formatCurrency = (val) => {
+          if (!val) return "₹0";
+          if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
+          if (val >= 1000) return `₹${(val / 1000).toFixed(1)}k`;
+          return `₹${val}`;
+        };
+
+        const remainingTotal = totalBudgeted - totalActual;
+
         setSummary([
-          { label: "TOTAL BUDGET", value: `₹${(totalBudgeted / 100000).toFixed(1)}L` },
-          { label: "TOTAL ACTUAL", value: `₹${(totalActual / 100000).toFixed(1)}L` },
-          { 
-            label: "VARIANCE", 
-            value: `${variance > 0 ? '+' : ''}${variance}%`, 
-            color: variance >= 0 ? "text-emerald-500" : "text-red-500" 
+          { label: "TOTAL BUDGET", value: formatCurrency(totalBudgeted) },
+          { label: "TOTAL ACTUAL", value: formatCurrency(totalActual) },
+          {
+            label: "REMAINING",
+            value: formatCurrency(remainingTotal),
+            color: remainingTotal >= 0 ? "text-emerald-500" : "text-red-500"
           },
         ]);
 
-        setAccounts(data.map(item => ({
-          name: item.category,
-          budgeted: `₹${(item.budgeted_amount / 100000).toFixed(1)}L`,
-          actual: `₹${(item.actual_amount / 100000).toFixed(1)}L`,
-          variance: `${((item.budgeted_amount - item.actual_amount) / item.budgeted_amount * 100).toFixed(1)}%`,
-          progress: Math.round(item.progress_percentage),
-          color: item.progress_percentage > 100 ? "bg-red-500" : "bg-primary-300"
-        })));
+        setAccounts(budgetData.map(item => {
+          const itemRemaining = item.budgeted_amount - item.actual_amount;
+          return {
+            name: item.category,
+            budgeted: formatCurrency(item.budgeted_amount),
+            actual: formatCurrency(item.actual_amount),
+            variance: formatCurrency(itemRemaining), // Shows remaining amount
+            varianceColor: itemRemaining >= 0 ? 'text-emerald-500' : 'text-red-500',
+            progress: Math.round(item.progress_percentage || 0),
+            color: (item.progress_percentage || 0) > 100 ? "bg-red-500" : "bg-primary-300"
+          };
+        }));
       } else {
         setAccounts([]);
       }
@@ -98,7 +158,7 @@ export default function BudgetingView({ workbenchId }) {
                   <th className="px-6 py-4">Account</th>
                   <th className="px-6 py-4 text-right">Budgeted</th>
                   <th className="px-6 py-4 text-right">Actual</th>
-                  <th className="px-6 py-4 text-right">Variance</th>
+                  <th className="px-6 py-4 text-right">Remaining</th>
                   <th className="px-6 py-4 min-w-[200px]">Progress</th>
                 </tr>
               </thead>
@@ -108,16 +168,14 @@ export default function BudgetingView({ workbenchId }) {
                     <td className="px-6 py-5 text-sm font-medium text-gray-300 group-hover:text-primary-300 transition-colors">{acc.name}</td>
                     <td className="px-6 py-5 text-sm text-right text-gray-500">{acc.budgeted}</td>
                     <td className="px-6 py-5 text-sm text-right text-white font-medium">{acc.actual}</td>
-                    <td className={`px-6 py-5 text-sm text-right font-medium ${
-                      acc.variance.startsWith('+') ? 'text-emerald-500' : 'text-red-500'
-                    }`}>
+                    <td className={`px-6 py-5 text-sm text-right font-medium ${acc.varianceColor}`}>
                       {acc.variance}
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex items-center space-x-3">
                         <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full ${acc.color} rounded-full`} 
+                          <div
+                            className={`h-full ${acc.color} rounded-full`}
                             style={{ width: `${Math.min(acc.progress, 100)}%` }}
                           />
                         </div>

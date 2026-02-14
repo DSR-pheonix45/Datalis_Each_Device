@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders })
   }
@@ -49,7 +49,7 @@ serve(async (req) => {
         .single();
       if (error) throw error;
       reference_id = data.id;
-      
+
       // Also create a log in workbench_records so it shows in the activity feed
       const { data: logRecord, error: logError } = await supabaseClient
         .from("workbench_records")
@@ -68,7 +68,7 @@ serve(async (req) => {
         })
         .select()
         .single();
-      
+
       if (logError) console.error("Error creating party log record:", logError);
       recordData = logRecord || data;
     } else {
@@ -109,7 +109,7 @@ serve(async (req) => {
         .insert(insertData)
         .select()
         .single();
-      
+
       if (error) {
         console.error("Database error inserting workbench_record:", error);
         throw error;
@@ -119,34 +119,73 @@ serve(async (req) => {
 
       // 2. ALSO Insert into Domain-specific tables for visibility in tabs
       if (record_type === 'budget') {
-        const insertData = {
+        const amount = parseFloat(metadata.amount);
+        if (isNaN(amount)) {
+          // Rollback
+          await supabaseClient.from("workbench_records").delete().eq("id", data.id);
+          throw new Error("Invalid budget amount");
+        }
+
+        // Strategy: Try New Schema first, Fallback to Old Schema if fails
+        const newSchemaData = {
           workbench_id,
           name: metadata.budget_name || summary,
-          total_amount: parseFloat(metadata.amount) || 0,
+          total_amount: amount,
           period_start: new Date().toISOString().split('T')[0],
-          period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days default
+          period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           metadata: { ...metadata, record_id: data.id }
         };
-        
-        console.log("Inserting domain budget:", insertData);
-        
-        const { data: budget, error: bError } = await supabaseClient
+
+        let budget = null;
+
+        // Attempt 1: New Schema
+        const { data: bData, error: bError } = await supabaseClient
           .from("budgets")
-          .insert(insertData)
+          .insert(newSchemaData)
           .select()
           .single();
-        
-        if (!bError && budget) {
+
+        if (!bError) {
+          budget = bData;
+        } else {
+          console.warn("Budget insert (new schema) failed, attempting old schema fallback:", bError);
+
+          // Attempt 2: Old Schema (allocated_amount, created_by)
+          const oldSchemaData = {
+            workbench_id,
+            name: metadata.budget_name || summary,
+            allocated_amount: amount,
+            created_by: user.id
+          };
+
+          const { data: oldData, error: oldError } = await supabaseClient
+            .from("budgets")
+            .insert(oldSchemaData)
+            .select()
+            .single();
+
+          if (oldError) {
+            console.error("Budget insert failed on both schemas:", oldError);
+            // Rollback workbench_record
+            await supabaseClient.from("workbench_records").delete().eq("id", data.id);
+            throw new Error(`Budget table insert failed: ${oldError.message}`);
+          }
+          budget = oldData;
+        }
+
+        if (budget) {
           // Add a default budget item so it shows in the table
-          await supabaseClient
-            .from("budget_items")
-            .insert({
-              budget_id: budget.id,
-              category: metadata.department || 'General',
-              amount: parseFloat(metadata.amount) || 0
-            });
-        } else if (bError) {
-          console.error("Error creating domain budget:", bError);
+          try {
+            await supabaseClient
+              .from("budget_items")
+              .insert({
+                budget_id: budget.id,
+                category: metadata.department || 'General',
+                amount: amount
+              });
+          } catch (itemErr) {
+            console.error("Failed to insert default budget item (non-fatal):", itemErr);
+          }
         }
       } else if (record_type === 'compliance') {
         const insertData = {
@@ -156,18 +195,28 @@ serve(async (req) => {
           status: metadata.status || 'pending',
           filed_date: metadata.status === 'filed' ? (metadata.filed_date || new Date().toISOString().split('T')[0]) : null
         };
-        
+
         console.log("Inserting domain compliance:", insertData);
-        
+
         const { error: cError } = await supabaseClient
           .from("compliances")
           .insert(insertData);
-        
-        if (cError) console.error("Error creating domain compliance:", cError);
+
+        if (cError) {
+          console.error("Error creating domain compliance:", cError);
+          // Rollback
+          await supabaseClient.from("workbench_records").delete().eq("id", data.id);
+          throw new Error(`Compliance table insert failed: ${cError.message}`);
+        }
       } else if (record_type === 'transaction') {
+        const amount = parseFloat(metadata.amount);
+        if (isNaN(amount) || amount <= 0) {
+          throw new Error("Transaction amount must be greater than 0");
+        }
+
         const insertData = {
           workbench_id,
-          amount: parseFloat(metadata.amount) || 0,
+          amount: amount,
           direction: metadata.direction,
           transaction_date: metadata.transaction_date,
           payment_type: metadata.payment_type,
@@ -177,21 +226,68 @@ serve(async (req) => {
           external_reference: metadata.external_reference || null,
           source_document_id: metadata.source_document_id && metadata.source_document_id !== "" ? metadata.source_document_id : null,
           invoice_document_id: metadata.invoice_document_id && metadata.invoice_document_id !== "" ? metadata.invoice_document_id : null,
-          purpose: metadata.purpose || null,
+          purpose: metadata.purpose || summary || null, // Fallback to summary
           created_by: user.id
         };
-        
+
         console.log("Inserting domain transaction:", insertData);
-        
-        const { error: tError } = await supabaseClient
+
+        const { data: tData, error: tError } = await supabaseClient
           .from("transactions")
-          .insert(insertData);
-        
+          .insert(insertData)
+          .select()
+          .single();
+
         if (tError) {
           console.error("Error creating domain transaction:", tError);
-          // Return the error to the client for better debugging
+          // Rollback workbench_record
+          await supabaseClient.from("workbench_records").delete().eq("id", data.id);
           throw new Error(`Transaction table insert failed: ${tError.message}`);
         }
+
+        // Link workbench_record to transaction
+        await supabaseClient
+          .from("workbench_records")
+          .update({ reference_id: tData.id })
+          .eq("id", data.id);
+      } else if (record_type === 'adjustment') {
+        const adjustmentAmount = parseFloat(metadata.adjustment_amount);
+        if (isNaN(adjustmentAmount)) {
+          await supabaseClient.from("workbench_records").delete().eq("id", data.id);
+          throw new Error("Invalid adjustment amount");
+        }
+
+        const insertData = {
+          workbench_id,
+          original_transaction_id: metadata.original_record_id,
+          adjustment_type: metadata.adjustment_type,
+          reason: metadata.reason || summary,
+          corrected_party_id: metadata.corrected_party_id || null,
+          corrected_budget_id: metadata.corrected_budget_id || null,
+          adjustment_amount: adjustmentAmount,
+          created_by: user.id
+        };
+
+        console.log("Inserting domain adjustment:", insertData);
+
+        const { data: aData, error: aError } = await supabaseClient
+          .from("adjustments")
+          .insert(insertData)
+          .select()
+          .single();
+
+        if (aError) {
+          console.error("Error creating domain adjustment:", aError);
+          // Rollback workbench_record
+          await supabaseClient.from("workbench_records").delete().eq("id", data.id);
+          throw new Error(`Adjustment table insert failed: ${aError.message}`);
+        }
+
+        // Link workbench_record to adjustment
+        await supabaseClient
+          .from("workbench_records")
+          .update({ reference_id: aData.id })
+          .eq("id", data.id);
       }
     }
 
@@ -212,7 +308,7 @@ serve(async (req) => {
       status: 200,
     })
 
-  } catch (error) {
+  } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
