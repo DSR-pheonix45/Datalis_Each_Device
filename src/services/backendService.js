@@ -106,7 +106,7 @@ export const backendService = {
     try {
       console.log(`[DEBUG] backendService: Calling create-workbench for "${name}"`);
       const { data, error } = await supabase.functions.invoke('create-workbench', {
-        body: { 
+        body: {
           name,
           books_start_date: booksStartDate,
           description
@@ -115,12 +115,14 @@ export const backendService = {
 
       if (error) {
         console.error('Edge Function Error (create-workbench):', error);
+        console.error('Error context:', JSON.stringify(error.context || {}, null, 2));
         throw error;
       }
 
       // Handle business logic error returned with 200 status
       if (data && data.error) {
         console.error('Edge Function Business Error (create-workbench):', data.error);
+        console.error('Full error data:', JSON.stringify(data, null, 2));
         throw new Error(data.error);
       }
 
@@ -128,6 +130,7 @@ export const backendService = {
       return data;
     } catch (err) {
       console.error('Failed to call create-workbench:', err);
+      console.error('Error details:', err.message);
       throw err;
     }
   },
@@ -164,9 +167,9 @@ export const backendService = {
   async createChatSession(title, workbenchId = null) {
     try {
       const { data, error } = await supabase.functions.invoke('create-chat-session', {
-        body: { 
+        body: {
           title,
-          workbench_id: workbenchId 
+          workbench_id: workbenchId
         }
       });
 

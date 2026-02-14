@@ -10,9 +10,9 @@ const corsHeaders = {
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
-      status: 204, 
-      headers: corsHeaders 
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders
     })
   }
 
@@ -42,7 +42,7 @@ serve(async (req) => {
     // Get user from auth header
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) throw new Error('No authorization header')
-    
+
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
 
@@ -57,6 +57,7 @@ serve(async (req) => {
         name,
         description: description ?? null,
         books_start_date: books_start_date ?? null,
+        owner_user_id: user.id,
         state: 'CREATED',
         history_window_months: 12
       })
@@ -84,33 +85,33 @@ serve(async (req) => {
 
     // 3. Create initial ledger accounts
     const initialAccounts = [
-      { 
-        workbench_id: workbench.id, 
-        name: 'Cash', 
-        account_type: 'cash', 
-        category: 'Cash', 
-        cash_impact: true 
+      {
+        workbench_id: workbench.id,
+        name: 'Cash',
+        account_type: 'cash',
+        category: 'Cash',
+        cash_impact: true
       },
-      { 
-        workbench_id: workbench.id, 
-        name: 'Primary Bank', 
-        account_type: 'bank', 
-        category: 'Cash', 
-        cash_impact: true 
+      {
+        workbench_id: workbench.id,
+        name: 'Primary Bank',
+        account_type: 'bank',
+        category: 'Cash',
+        cash_impact: true
       },
-      { 
-        workbench_id: workbench.id, 
-        name: 'Accounts Receivable', 
-        account_type: 'bank', 
-        category: 'Receivable', 
-        cash_impact: false 
+      {
+        workbench_id: workbench.id,
+        name: 'Accounts Receivable',
+        account_type: 'bank',
+        category: 'Receivable',
+        cash_impact: false
       },
-      { 
-        workbench_id: workbench.id, 
-        name: 'Accounts Payable', 
-        account_type: 'bank', 
-        category: 'Payable', 
-        cash_impact: false 
+      {
+        workbench_id: workbench.id,
+        name: 'Accounts Payable',
+        account_type: 'bank',
+        category: 'Payable',
+        cash_impact: false
       }
     ];
 
@@ -143,13 +144,13 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[DEBUG] create-workbench fatal error:', error);
-    
-    // Determine the error message
-    const errorMessage = error instanceof Error ? error.message : 
-                        (typeof error === 'object' && error !== null && 'message' in error ? (error as any).message : 
-                        String(error));
 
-    return new Response(JSON.stringify({ 
+    // Determine the error message
+    const errorMessage = error instanceof Error ? error.message :
+      (typeof error === 'object' && error !== null && 'message' in error ? (error as any).message :
+        String(error));
+
+    return new Response(JSON.stringify({
       error: errorMessage,
       details: error
     }), {

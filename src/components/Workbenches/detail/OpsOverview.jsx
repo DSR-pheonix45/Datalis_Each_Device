@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { 
-  BsCashStack, 
-  BsArrowUpRight, 
-  BsArrowDownLeft, 
+import {
+  BsCashStack,
+  BsArrowUpRight,
+  BsArrowDownLeft,
   BsHeartPulse,
   BsExclamationCircle,
   BsClockHistory
@@ -13,35 +13,35 @@ import { supabase } from "../../../lib/supabase";
 export default function OpsOverview({ workbenchId }) {
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState([
-    { 
-      label: "CASH POSITION", 
-      value: "₹0", 
-      change: "Loading...", 
+    {
+      label: "CASH POSITION",
+      value: "₹0",
+      change: "Loading...",
       changeType: "neutral",
       icon: BsCashStack,
       color: "amber",
       subValue: "Net: ₹0"
     },
-    { 
-      label: "PAYABLES", 
-      value: "₹0", 
-      change: "No bills due", 
+    {
+      label: "PAYABLES",
+      value: "₹0",
+      change: "No bills due",
       changeType: "neutral",
       icon: BsArrowUpRight,
       color: "red"
     },
-    { 
-      label: "RECEIVABLES", 
-      value: "₹0", 
-      change: "No overdue invoices", 
+    {
+      label: "RECEIVABLES",
+      value: "₹0",
+      change: "No overdue invoices",
       changeType: "neutral",
       icon: BsArrowDownLeft,
       color: "emerald"
     },
-    { 
-      label: "HEALTH SCORE", 
-      value: "--/100", 
-      change: "Calculating...", 
+    {
+      label: "HEALTH SCORE",
+      value: "--/100",
+      change: "Calculating...",
       changeType: "neutral",
       icon: BsHeartPulse,
       color: "teal"
@@ -89,12 +89,12 @@ export default function OpsOverview({ workbenchId }) {
         .from('workbench_records')
         .select('*')
         .eq('workbench_id', workbenchId);
-      
-      console.log("RAW RECORDS DEBUG:", { 
-        workbenchId, 
-        count: rawRecords?.length, 
+
+      console.log("RAW RECORDS DEBUG:", {
+        workbenchId,
+        count: rawRecords?.length,
         records: rawRecords,
-        error: rawError 
+        error: rawError
       });
       // ---------------------
 
@@ -104,7 +104,7 @@ export default function OpsOverview({ workbenchId }) {
         .select('*')
         .eq('workbench_id', workbenchId)
         .maybeSingle();
-      
+
       if (cashError) console.error("Cash Error:", cashError);
 
       // Fetch Draft Impact
@@ -113,9 +113,9 @@ export default function OpsOverview({ workbenchId }) {
         .select('*')
         .eq('workbench_id', workbenchId)
         .maybeSingle();
-      
+
       if (draftError) console.error("Draft Error:", draftError);
-      
+
       console.log("Dashboard Data Fetch:", { workbenchId, cashData, draftData });
 
       // Fetch Payables
@@ -144,7 +144,7 @@ export default function OpsOverview({ workbenchId }) {
 
       // Update metrics
       const newMetrics = [...metrics];
-      
+
       const confirmedBalance = cashData?.balance || 0;
       const draftBalance = draftData?.draft_balance || 0;
 
@@ -167,7 +167,7 @@ export default function OpsOverview({ workbenchId }) {
           const direction = r.metadata?.direction; // 'credit' = In, 'debit' = Out
           const status = r.status;
           const type = r.record_type;
-          
+
           if (type === 'transaction') {
             if (status === 'confirmed') {
               manualConfirmed += (direction === 'credit' ? amount : -amount);
@@ -213,7 +213,7 @@ export default function OpsOverview({ workbenchId }) {
 
       setMetrics(newMetrics);
       setExceptions(exceptionsData?.map(e => ({ text: e.message, type: e.severity })) || []);
-      
+
       setExpenses(expensesData?.map(e => ({
         category: e.category,
         progress: e.percentage,
@@ -250,7 +250,7 @@ export default function OpsOverview({ workbenchId }) {
       <div>
         <h3 className="text-lg font-bold text-white mb-1">Daily Operations</h3>
         <p className="text-gray-500 text-xs mb-6">Cash position, payables, receivables & health metrics</p>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {metrics.map((m, i) => (
             <Card key={i} variant="dark" className="border-white/5 p-6 hover:border-white/10 transition-all group">
@@ -263,11 +263,10 @@ export default function OpsOverview({ workbenchId }) {
               <div className="space-y-1">
                 <div className="text-2xl font-bold text-white">{m.value}</div>
                 <div className="flex justify-between items-center">
-                  <div className={`text-[11px] ${
-                    m.changeType === 'positive' ? 'text-emerald-500' : 
-                    m.changeType === 'warning' ? 'text-amber-500' : 
-                    m.changeType === 'danger' ? 'text-red-500' : 'text-gray-500'
-                  }`}>
+                  <div className={`text-[11px] ${m.changeType === 'positive' ? 'text-emerald-500' :
+                    m.changeType === 'warning' ? 'text-amber-500' :
+                      m.changeType === 'danger' ? 'text-red-500' : 'text-gray-500'
+                    }`}>
                     {m.change}
                   </div>
                   {m.subValue && (
@@ -290,19 +289,17 @@ export default function OpsOverview({ workbenchId }) {
         </div>
         <div className="space-y-3">
           {exceptions.map((ex, i) => (
-            <div 
-              key={i} 
-              className={`p-3 rounded-xl border flex items-center space-x-3 text-sm ${
-                ex.type === 'danger' ? 'bg-red-500/5 border-red-500/10 text-red-400' :
+            <div
+              key={i}
+              className={`p-3 rounded-xl border flex items-center space-x-3 text-sm ${ex.type === 'danger' ? 'bg-red-500/5 border-red-500/10 text-red-400' :
                 ex.type === 'warning' ? 'bg-amber-500/5 border-amber-500/10 text-amber-400' :
-                'bg-white/5 border-white/5 text-gray-400'
-              }`}
+                  'bg-white/5 border-white/5 text-gray-400'
+                }`}
             >
-              <div className={`w-2 h-2 rounded-full ${
-                ex.type === 'danger' ? 'bg-red-500' :
+              <div className={`w-2 h-2 rounded-full ${ex.type === 'danger' ? 'bg-red-500' :
                 ex.type === 'warning' ? 'bg-amber-500' :
-                'bg-gray-500'
-              }`} />
+                  'bg-gray-500'
+                }`} />
               <span>{ex.text}</span>
             </div>
           ))}
@@ -320,8 +317,8 @@ export default function OpsOverview({ workbenchId }) {
                 <span className="text-gray-500 text-xs">{exp.count}</span>
               </div>
               <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full ${exp.color} rounded-full transition-all duration-1000 ease-out`} 
+                <div
+                  className={`h-full ${exp.color} rounded-full transition-all duration-1000 ease-out`}
                   style={{ width: `${exp.progress}%` }}
                 />
               </div>

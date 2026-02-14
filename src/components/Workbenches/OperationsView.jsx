@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { 
-  BsShieldCheck, 
-  BsPieChart, 
+import {
+  BsShieldCheck,
+  BsPieChart,
   BsLightningCharge,
   BsFileEarmarkPdf,
   BsClockHistory,
@@ -40,7 +40,7 @@ export default function OperationsView({ workbenchId }) {
           <h2 className="text-2xl font-bold text-white mb-2">Operations</h2>
           <p className="text-gray-500 text-sm">Compliance, budgeting, and day-to-day finance operations</p>
         </div>
-        <button 
+        <button
           onClick={() => setIsModalOpen(true)}
           className="flex items-center space-x-2 px-4 py-2 bg-primary text-black rounded-xl hover:opacity-90 transition-all text-sm font-bold shadow-lg shadow-primary/20"
         >
@@ -49,7 +49,7 @@ export default function OperationsView({ workbenchId }) {
         </button>
       </div>
 
-      <CreateRecordModal 
+      <CreateRecordModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         workbenchId={workbenchId}
@@ -65,11 +65,10 @@ export default function OperationsView({ workbenchId }) {
           <button
             key={tab.id}
             onClick={() => setActiveSubTab(tab.id)}
-            className={`flex items-center space-x-2 px-6 py-2 rounded-lg transition-all text-sm font-semibold ${
-              activeSubTab === tab.id
-                ? "bg-white/10 text-primary-300 shadow-lg border border-white/10"
-                : "text-gray-500 hover:text-gray-300"
-            }`}
+            className={`flex items-center space-x-2 px-6 py-2 rounded-lg transition-all text-sm font-semibold ${activeSubTab === tab.id
+              ? "bg-white/10 text-primary-300 shadow-lg border border-white/10"
+              : "text-gray-500 hover:text-gray-300"
+              }`}
           >
             <tab.icon className="text-base" />
             <span>{tab.label}</span>

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { 
-  BsChevronLeft, 
-  BsSearch, 
-  BsFileEarmarkText, 
+import {
+  BsChevronLeft,
+  BsSearch,
+  BsFileEarmarkText,
   BsStars,
   BsCheckCircleFill,
   BsClockHistory,
@@ -21,6 +21,7 @@ import OperationsView from "../components/Workbenches/OperationsView";
 import InvestorView from "../components/Workbenches/InvestorView";
 import LogsView from "../components/Workbenches/LogsView";
 import DocumentSidebar from "../components/Workbenches/detail/DocumentSidebar";
+import ReportGenerationModal from "../components/Workbenches/ReportGenerationModal";
 
 export default function WorkbenchDetail() {
   const { id } = useParams();
@@ -30,10 +31,11 @@ export default function WorkbenchDetail() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("operations"); // operations, investor, records
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const fetchWorkbench = useCallback(async () => {
     if (authLoading) return;
-    
+
     if (!user) {
       setLoading(false);
       return;
@@ -52,14 +54,14 @@ export default function WorkbenchDetail() {
         console.error("[DEBUG] WorkbenchDetail: Error fetching workbench:", error);
         throw error;
       }
-      
+
       console.log("[DEBUG] WorkbenchDetail: Response:", data);
       if (!data) {
         console.warn("[DEBUG] WorkbenchDetail: No workbench found for id", id);
         navigate("/dashboard/workbenches");
         return;
       }
-      
+
       setWorkbench(data);
     } catch (err) {
       console.error("Error fetching workbench:", err);
@@ -99,13 +101,13 @@ export default function WorkbenchDetail() {
       {/* Top Header */}
       <header className="flex items-center justify-between px-8 py-4 border-b border-white/5 bg-[#0a0a0a]/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="flex items-center space-x-6">
-          <button 
+          <button
             onClick={() => navigate("/dashboard/workbenches")}
             className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
           >
             <BsChevronLeft className="text-lg" />
           </button>
-          
+
           <div>
             <div className="flex items-center space-x-3">
               <h1 className="text-xl font-bold text-white">{workbench.name}</h1>
@@ -117,22 +119,25 @@ export default function WorkbenchDetail() {
         <div className="flex items-center space-x-4">
           <div className="relative group hidden md:block">
             <BsSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary-300 transition-colors" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search transactions..."
               className="bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-300/30 focus:border-primary-300/30 transition-all w-64"
             />
           </div>
-          
-          <button 
+
+          <button
             onClick={() => setIsSidebarOpen(true)}
             className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all text-sm font-medium"
           >
             <BsFileEarmarkText className="text-base" />
             <span>Documents</span>
           </button>
-          
-          <button className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-primary shadow-lg shadow-primary/20 text-black hover:opacity-90 transition-all text-sm font-bold">
+
+          <button
+            onClick={() => setIsReportModalOpen(true)}
+            className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-primary shadow-lg shadow-primary/20 text-black hover:opacity-90 transition-all text-sm font-bold"
+          >
             <BsStars className="text-base" />
             <span>Generate Report</span>
           </button>
@@ -146,11 +151,10 @@ export default function WorkbenchDetail() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`py-4 text-sm font-semibold transition-all relative ${
-                activeTab === tab 
-                  ? "text-white" 
-                  : "text-gray-500 hover:text-gray-300"
-              }`}
+              className={`py-4 text-sm font-semibold transition-all relative ${activeTab === tab
+                ? "text-white"
+                : "text-gray-500 hover:text-gray-300"
+                }`}
             >
               <div className="flex items-center space-x-2">
                 {tab === "Operations" && <BsBuilding className="text-base" />}
@@ -174,10 +178,17 @@ export default function WorkbenchDetail() {
       </main>
 
       {/* Right Sidebar - Documents */}
-      <DocumentSidebar 
-        isOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)} 
+      <DocumentSidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
         workbenchId={id}
+      />
+
+      <ReportGenerationModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        workbenchId={id}
+        workbenchName={workbench?.name}
       />
     </div>
   );

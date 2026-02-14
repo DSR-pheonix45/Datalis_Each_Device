@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "../../context/ThemeContext";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ArrowLeft, Download, Plus, Trash2, Globe } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -46,13 +46,18 @@ const REGIONS = {
 
 export default function InvoiceGenerator() {
   const { theme } = useTheme();
+  const location = useLocation();
   const [region, setRegion] = useState("INDIA");
   const [showExportMenu, setShowExportMenu] = useState(false);
+
+  // Checking for passed state from Workbench
+  const workbenchData = location.state || {};
+
   const [invoiceData, setInvoiceData] = useState({
     invoiceNumber: "INV-001",
-    date: new Date().toISOString().split('T')[0],
+    date: workbenchData.defaultDate || new Date().toISOString().split('T')[0],
     dueDate: "",
-    senderName: "",
+    senderName: workbenchData.workbenchName || "", // Pre-fill from Workbench Name
     senderEmail: "",
     senderAddress: "",
     senderGstin: "",
@@ -167,7 +172,7 @@ export default function InvoiceGenerator() {
       // Default Header Bar
       doc.setFillColor(...primaryColor);
       doc.rect(0, 0, pageWidth, 40, 'F');
-      
+
       // Title
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(24);
@@ -187,7 +192,7 @@ export default function InvoiceGenerator() {
     doc.setFont("helvetica", "normal");
     const infoY = invoiceData.letterhead ? 45 : 15;
     const infoX = pageWidth - 20;
-    
+
     doc.text(`Invoice #: ${invoiceData.invoiceNumber}`, infoX, infoY, { align: "right" });
     doc.text(`Date: ${invoiceData.date}`, infoX, infoY + 7, { align: "right" });
     if (invoiceData.dueDate) doc.text(`Due Date: ${invoiceData.dueDate}`, infoX, infoY + 14, { align: "right" });
@@ -210,7 +215,7 @@ export default function InvoiceGenerator() {
     doc.text(invoiceData.senderEmail || "your@email.com", 20, currentY);
     currentY += 5;
     doc.text(invoiceData.senderAddress || "Your Address", 20, currentY, { maxWidth: 80 });
-    
+
     // Sender IDs
     currentY += 10;
     doc.setTextColor(...textColor);
@@ -239,7 +244,7 @@ export default function InvoiceGenerator() {
     doc.text(invoiceData.clientEmail || "client@email.com", 120, rightY);
     rightY += 5;
     doc.text(invoiceData.clientAddress || "Client Address", 120, rightY, { maxWidth: 80 });
-    
+
     if (region === "INDIA" && invoiceData.clientGstin) {
       rightY += 10;
       doc.setTextColor(...textColor);
@@ -283,16 +288,16 @@ export default function InvoiceGenerator() {
     // Summary Section
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    
+
     // Subtotal
     doc.text("Subtotal:", 140, finalY);
     doc.text(`${symbol}${subtotal.toLocaleString(region === 'INDIA' ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 190, finalY, { align: "right" });
-    
+
     // Tax
     finalY += 7;
     doc.text(`${currentRegion.taxLabel} (${invoiceData.taxRate}%):`, 140, finalY);
     doc.text(`${symbol}${tax.toLocaleString(region === 'INDIA' ? 'en-IN' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 190, finalY, { align: "right" });
-    
+
     // Total
     finalY += 10;
     doc.setFont("helvetica", "bold");
@@ -561,17 +566,21 @@ export default function InvoiceGenerator() {
   };
 
   return (
-    <div className={`min-h-screen py-24 px-6 md:px-12 ${
-      theme === "dark" ? "bg-black text-white" : "bg-gray-50 text-gray-900"
-    }`}>
+    <div className={`min-h-screen py-24 px-6 md:px-12 ${theme === "dark" ? "bg-black text-white" : "bg-gray-50 text-gray-900"
+      }`}>
       <div className="max-w-4xl mx-auto">
-        <Link to="/templates" className="flex items-center gap-2 text-[#81E6D9] mb-8 hover:underline">
-          <ArrowLeft className="w-4 h-4" /> Back to Templates
-        </Link>
+        {workbenchData.fromWorkbench ? (
+          <Link to={`/dashboard/workbench/${workbenchData.workbenchId}`} className="flex items-center gap-2 text-[#81E6D9] mb-8 hover:underline">
+            <ArrowLeft className="w-4 h-4" /> Back to Workbench: {workbenchData.workbenchName}
+          </Link>
+        ) : (
+          <Link to="/templates" className="flex items-center gap-2 text-[#81E6D9] mb-8 hover:underline">
+            <ArrowLeft className="w-4 h-4" /> Back to Templates
+          </Link>
+        )}
 
-        <div className={`rounded-3xl border p-8 md:p-12 ${
-          theme === "dark" ? "bg-[#111] border-white/10" : "bg-white border-gray-200 shadow-xl"
-        }`}>
+        <div className={`rounded-3xl border p-8 md:p-12 ${theme === "dark" ? "bg-[#111] border-white/10" : "bg-white border-gray-200 shadow-xl"
+          }`}>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
             <div>
               <h1 className="text-3xl font-bold mb-2">Invoice Generator</h1>
@@ -587,19 +596,17 @@ export default function InvoiceGenerator() {
               >
                 <Download className="w-5 h-5" /> Download <ChevronDown className={`w-4 h-4 transition-transform ${showExportMenu ? "rotate-180" : ""}`} />
               </button>
-              
+
               {showExportMenu && (
-                <div className={`absolute right-0 mt-2 w-48 rounded-2xl shadow-xl border z-10 overflow-hidden ${
-                  theme === "dark" ? "bg-[#1A1A1A] border-white/10" : "bg-white border-gray-200"
-                }`}>
+                <div className={`absolute right-0 mt-2 w-48 rounded-2xl shadow-xl border z-10 overflow-hidden ${theme === "dark" ? "bg-[#1A1A1A] border-white/10" : "bg-white border-gray-200"
+                  }`}>
                   <button
                     onClick={() => {
                       generatePDF();
                       setShowExportMenu(false);
                     }}
-                    className={`w-full text-left px-4 py-3 text-sm hover:bg-[#81E6D9]/10 transition-colors ${
-                      theme === "dark" ? "text-white" : "text-gray-900"
-                    }`}
+                    className={`w-full text-left px-4 py-3 text-sm hover:bg-[#81E6D9]/10 transition-colors ${theme === "dark" ? "text-white" : "text-gray-900"
+                      }`}
                   >
                     Download as PDF
                   </button>
@@ -608,9 +615,8 @@ export default function InvoiceGenerator() {
                       generateWord();
                       setShowExportMenu(false);
                     }}
-                    className={`w-full text-left px-4 py-3 text-sm hover:bg-[#81E6D9]/10 transition-colors ${
-                      theme === "dark" ? "text-white" : "text-gray-900"
-                    }`}
+                    className={`w-full text-left px-4 py-3 text-sm hover:bg-[#81E6D9]/10 transition-colors ${theme === "dark" ? "text-white" : "text-gray-900"
+                      }`}
                   >
                     Download as Word
                   </button>
@@ -627,13 +633,12 @@ export default function InvoiceGenerator() {
                 <button
                   key={key}
                   onClick={() => setRegion(key)}
-                  className={`p-4 rounded-2xl border transition-all text-sm font-medium ${
-                    region === key
-                      ? "border-[#81E6D9] bg-[#81E6D9]/10 text-[#81E6D9]"
-                      : theme === "dark"
+                  className={`p-4 rounded-2xl border transition-all text-sm font-medium ${region === key
+                    ? "border-[#81E6D9] bg-[#81E6D9]/10 text-[#81E6D9]"
+                    : theme === "dark"
                       ? "border-white/10 bg-white/5 hover:border-white/30"
                       : "border-gray-200 bg-gray-50 hover:border-gray-400"
-                  }`}
+                    }`}
                 >
                   {value.label}
                 </button>
@@ -648,9 +653,8 @@ export default function InvoiceGenerator() {
               {/* Logo Upload */}
               <div className="space-y-2">
                 <label className="block text-sm font-medium opacity-70">Company Logo</label>
-                <div className={`relative h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${
-                  invoiceData.logo ? "border-[#81E6D9] bg-[#81E6D9]/5" : "border-white/10 hover:border-white/30"
-                }`}>
+                <div className={`relative h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${invoiceData.logo ? "border-[#81E6D9] bg-[#81E6D9]/5" : "border-white/10 hover:border-white/30"
+                  }`}>
                   {invoiceData.logo ? (
                     <>
                       <img src={invoiceData.logo} alt="Logo" className="h-20 object-contain" />
@@ -671,9 +675,8 @@ export default function InvoiceGenerator() {
               {/* Letterhead Upload */}
               <div className="space-y-2">
                 <label className="block text-sm font-medium opacity-70">Letterhead (Top)</label>
-                <div className={`relative h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${
-                  invoiceData.letterhead ? "border-[#81E6D9] bg-[#81E6D9]/5" : "border-white/10 hover:border-white/30"
-                }`}>
+                <div className={`relative h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${invoiceData.letterhead ? "border-[#81E6D9] bg-[#81E6D9]/5" : "border-white/10 hover:border-white/30"
+                  }`}>
                   {invoiceData.letterhead ? (
                     <>
                       <img src={invoiceData.letterhead} alt="Letterhead" className="h-20 object-contain" />
@@ -694,9 +697,8 @@ export default function InvoiceGenerator() {
               {/* Footer Upload */}
               <div className="space-y-2">
                 <label className="block text-sm font-medium opacity-70">Footer Image (Bottom)</label>
-                <div className={`relative h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${
-                  invoiceData.footer ? "border-[#81E6D9] bg-[#81E6D9]/5" : "border-white/10 hover:border-white/30"
-                }`}>
+                <div className={`relative h-32 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${invoiceData.footer ? "border-[#81E6D9] bg-[#81E6D9]/5" : "border-white/10 hover:border-white/30"
+                  }`}>
                   {invoiceData.footer ? (
                     <>
                       <img src={invoiceData.footer} alt="Footer" className="h-20 object-contain" />
@@ -726,9 +728,8 @@ export default function InvoiceGenerator() {
                   name="invoiceNumber"
                   value={invoiceData.invoiceNumber}
                   onChange={handleInputChange}
-                  className={`w-full p-3 rounded-xl border ${
-                    theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                  }`}
+                  className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                    }`}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -739,9 +740,8 @@ export default function InvoiceGenerator() {
                     name="date"
                     value={invoiceData.date}
                     onChange={handleInputChange}
-                    className={`w-full p-3 rounded-xl border ${
-                      theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                    }`}
+                    className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                      }`}
                   />
                 </div>
                 <div>
@@ -751,9 +751,8 @@ export default function InvoiceGenerator() {
                     name="dueDate"
                     value={invoiceData.dueDate}
                     onChange={handleInputChange}
-                    className={`w-full p-3 rounded-xl border ${
-                      theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                    }`}
+                    className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                      }`}
                   />
                 </div>
               </div>
@@ -768,9 +767,8 @@ export default function InvoiceGenerator() {
                   name="taxRate"
                   value={invoiceData.taxRate}
                   onChange={handleInputChange}
-                  className={`w-full p-3 rounded-xl border ${
-                    theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                  }`}
+                  className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                    }`}
                 />
               </div>
               <div className="p-4 rounded-xl bg-[#81E6D9]/5 border border-[#81E6D9]/20">
@@ -788,11 +786,10 @@ export default function InvoiceGenerator() {
                 placeholder="Your Business Name"
                 value={invoiceData.senderName}
                 onChange={handleInputChange}
-                className={`w-full p-3 rounded-xl border ${
-                  theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                }`}
+                className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                  }`}
               />
-              
+
               {/* Regional Fields for Sender */}
               {region === "INDIA" && (
                 <div className="grid grid-cols-2 gap-4">
@@ -851,9 +848,8 @@ export default function InvoiceGenerator() {
                 placeholder="Email Address"
                 value={invoiceData.senderEmail}
                 onChange={handleInputChange}
-                className={`w-full p-3 rounded-xl border ${
-                  theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                }`}
+                className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                  }`}
               />
               <textarea
                 name="senderAddress"
@@ -861,9 +857,8 @@ export default function InvoiceGenerator() {
                 value={invoiceData.senderAddress}
                 onChange={handleInputChange}
                 rows="3"
-                className={`w-full p-3 rounded-xl border ${
-                  theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                }`}
+                className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                  }`}
               />
             </div>
 
@@ -875,9 +870,8 @@ export default function InvoiceGenerator() {
                 placeholder="Client's Name / Business"
                 value={invoiceData.clientName}
                 onChange={handleInputChange}
-                className={`w-full p-3 rounded-xl border ${
-                  theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                }`}
+                className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                  }`}
               />
 
               {/* Regional Fields for Client */}
@@ -908,9 +902,8 @@ export default function InvoiceGenerator() {
                 placeholder="Client's Email"
                 value={invoiceData.clientEmail}
                 onChange={handleInputChange}
-                className={`w-full p-3 rounded-xl border ${
-                  theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                }`}
+                className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                  }`}
               />
               <textarea
                 name="clientAddress"
@@ -918,9 +911,8 @@ export default function InvoiceGenerator() {
                 value={invoiceData.clientAddress}
                 onChange={handleInputChange}
                 rows="3"
-                className={`w-full p-3 rounded-xl border ${
-                  theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                }`}
+                className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                  }`}
               />
             </div>
           </div>
@@ -938,9 +930,8 @@ export default function InvoiceGenerator() {
                       value={item.description}
                       onChange={(e) => handleItemChange(index, e)}
                       placeholder="Item description"
-                      className={`w-full p-3 rounded-xl border ${
-                        theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                      }`}
+                      className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                        }`}
                     />
                   </div>
                   <div className="col-span-2">
@@ -950,9 +941,8 @@ export default function InvoiceGenerator() {
                       name="quantity"
                       value={item.quantity}
                       onChange={(e) => handleItemChange(index, e)}
-                      className={`w-full p-3 rounded-xl border ${
-                        theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                      }`}
+                      className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                        }`}
                     />
                   </div>
                   <div className="col-span-3">
@@ -962,9 +952,8 @@ export default function InvoiceGenerator() {
                       name="price"
                       value={item.price}
                       onChange={(e) => handleItemChange(index, e)}
-                      className={`w-full p-3 rounded-xl border ${
-                        theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                      }`}
+                      className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                        }`}
                     />
                   </div>
                   <div className="col-span-1 pb-3">
@@ -995,9 +984,8 @@ export default function InvoiceGenerator() {
                 value={invoiceData.notes}
                 onChange={handleInputChange}
                 rows="4"
-                className={`w-full p-3 rounded-xl border ${
-                  theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
-                }`}
+                className={`w-full p-3 rounded-xl border ${theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200"
+                  }`}
               />
             </div>
             <div className="w-full md:w-64 space-y-3">
