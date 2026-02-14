@@ -41,6 +41,7 @@ const OAuthCallback = lazy(() => import("./Auth/OAuthCallback"));
 const MainApp = lazy(() => import("./components/MainApp"));
 const Settings = lazy(() => import("./components/Settings/Settings"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
+const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 
 // Loading Component
 const PageLoader = () => (
@@ -106,7 +107,9 @@ function App() {
                 <Route path="/payment-coming-soon" element={<PaymentComingSoon />} />
               </Route>
               <Route path="/oauth/callback" element={<OAuthCallback />} />
+              <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="/auth/callback" element={<OAuthCallback />} />
+              <Route path="/invite/:token" element={<AcceptInvite />} />
 
               {/* Protected Dashboard Routes */}
               <Route

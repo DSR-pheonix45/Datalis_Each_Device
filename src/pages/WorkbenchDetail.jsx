@@ -24,6 +24,7 @@ import DocumentSidebar from "../components/Workbenches/detail/DocumentSidebar";
 import ReportGenerationModal from "../components/Workbenches/ReportGenerationModal";
 import WorkbenchWelcome from "../components/Workbenches/WorkbenchWelcome";
 import CreateRecordModal from "../components/Workbenches/CreateRecordModal";
+import CompanyModal from "../components/Workbenches/CompanyModal";
 
 export default function WorkbenchDetail() {
   const { id } = useParams();
@@ -37,6 +38,7 @@ export default function WorkbenchDetail() {
   const [isEmpty, setIsEmpty] = useState(false);
   const [checkingEmpty, setCheckingEmpty] = useState(true);
   const [isCreateRecordModalOpen, setIsCreateRecordModalOpen] = useState(false);
+  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
 
   const fetchWorkbench = useCallback(async () => {
     if (authLoading) return;
@@ -178,6 +180,14 @@ export default function WorkbenchDetail() {
             <BsStars className="text-base" />
             <span>Generate Report</span>
           </button>
+
+          <button
+            onClick={() => setIsCompanyModalOpen(true)}
+            className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-all ml-2"
+            title="Manage Team"
+          >
+            <BsBuilding className="text-lg" />
+          </button>
         </div>
       </header>
 
@@ -251,6 +261,12 @@ export default function WorkbenchDetail() {
         onClose={() => setIsReportModalOpen(false)}
         workbenchId={id}
         workbenchName={workbench?.name}
+      />
+
+      <CompanyModal
+        isOpen={isCompanyModalOpen}
+        onClose={() => setIsCompanyModalOpen(false)}
+        workbenchId={id}
       />
     </div>
   );

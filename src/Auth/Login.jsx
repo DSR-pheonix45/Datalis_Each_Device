@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from "../hooks/useAuth";
 import { AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
@@ -8,6 +8,7 @@ import BrandLogo from '../components/common/BrandLogo';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -15,17 +16,18 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  
+
   // Redirect if already logged in
   useEffect(() => {
     if (user && !authLoading) {
-      navigate('/dashboard');
+      const returnUrl = location.state?.returnUrl || '/dashboard';
+      navigate(returnUrl);
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, location]);
 
   const handleEmailLogin = async (e) => {
     e.preventDefault();
-    
+
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
       setError("Please enter both email and password.");
@@ -35,7 +37,7 @@ export default function Login() {
     try {
       setLoading(true);
       setError('');
-      
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
@@ -57,9 +59,10 @@ export default function Login() {
         }
         return; // Don't throw, just return so finally block runs
       }
-      
+
       if (data?.user) {
-        navigate('/dashboard');
+        const returnUrl = location.state?.returnUrl || '/dashboard';
+        navigate(returnUrl);
       }
     } catch (err) {
       console.error('Login implementation error:', err);
