@@ -22,6 +22,8 @@ import InvestorView from "../components/Workbenches/InvestorView";
 import LogsView from "../components/Workbenches/LogsView";
 import DocumentSidebar from "../components/Workbenches/detail/DocumentSidebar";
 import ReportGenerationModal from "../components/Workbenches/ReportGenerationModal";
+import WorkbenchWelcome from "../components/Workbenches/WorkbenchWelcome";
+import CreateRecordModal from "../components/Workbenches/CreateRecordModal";
 
 export default function WorkbenchDetail() {
   const { id } = useParams();
@@ -29,9 +31,12 @@ export default function WorkbenchDetail() {
   const { user, loading: authLoading } = useAuth();
   const [workbench, setWorkbench] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("operations"); // operations, investor, records
+  const [activeTab, setActiveTab] = useState("Operations"); // Operations, Investor View, Logs & Records
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(false);
+  const [checkingEmpty, setCheckingEmpty] = useState(true);
+  const [isCreateRecordModalOpen, setIsCreateRecordModalOpen] = useState(false);
 
   const fetchWorkbench = useCallback(async () => {
     if (authLoading) return;
@@ -71,9 +76,41 @@ export default function WorkbenchDetail() {
     }
   }, [id, navigate, user, authLoading]);
 
+  const checkWorkbenchData = useCallback(async () => {
+    if (!user) return;
+    try {
+      setCheckingEmpty(true);
+      const { count, error } = await supabase
+        .from("workbench_records")
+        .select("id", { count: 'exact', head: true })
+        .eq("workbench_id", id);
+
+      if (error) {
+        throw error;
+      }
+
+      setIsEmpty(count === 0);
+    } catch (err) {
+      console.error("Error checking workbench empty state:", err);
+    } finally {
+      setCheckingEmpty(false);
+    }
+  }, [id, user]);
+
   useEffect(() => {
     fetchWorkbench();
-  }, [id, fetchWorkbench]);
+    checkWorkbenchData();
+  }, [id, fetchWorkbench, checkWorkbenchData]);
+
+  const handleWelcomeAction = (action) => {
+    if (action === 'upload_document') {
+      setIsSidebarOpen(true);
+    } else if (action === 'create_transaction') {
+      setIsCreateRecordModalOpen(true);
+    } else if (action === 'talk_to_ai') {
+      window.location.href = "http://localhost:5174/dashboard";
+    }
+  };
 
   if (loading) {
     return (
@@ -172,10 +209,35 @@ export default function WorkbenchDetail() {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto custom-scrollbar">
-        {activeTab === "Operations" && <OperationsView workbenchId={id} />}
-        {activeTab === "Investor View" && <InvestorView workbenchId={id} />}
-        {activeTab === "Logs & Records" && <LogsView workbenchId={id} />}
+        {checkingEmpty ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
+          </div>
+        ) : (
+          <>
+            {activeTab === "Operations" && (
+              isEmpty ? (
+                <WorkbenchWelcome onAction={handleWelcomeAction} workbenchId={id} />
+              ) : (
+                <OperationsView workbenchId={id} />
+              )
+            )}
+            {activeTab === "Investor View" && <InvestorView workbenchId={id} />}
+            {activeTab === "Logs & Records" && <LogsView workbenchId={id} />}
+          </>
+        )}
       </main>
+
+      {/* Modals */}
+      <CreateRecordModal
+        isOpen={isCreateRecordModalOpen}
+        onClose={() => setIsCreateRecordModalOpen(false)}
+        workbenchId={id}
+        onSuccess={() => {
+          setIsCreateRecordModalOpen(false);
+          checkWorkbenchData(); // Re-check to potentially clear empty state
+        }}
+      />
 
       {/* Right Sidebar - Documents */}
       <DocumentSidebar
