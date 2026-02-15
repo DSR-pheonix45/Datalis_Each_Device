@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -6,8 +5,8 @@ import {
     LineChart, Line, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import {
-    BsStars, BsCashStack, BsReceipt, BsFileEarmarkText,
-    BsLightningChargeFill, BsCheckCircleFill, BsShieldCheck,
+    BsRocket, BsCashStack, BsReceipt, BsFileEarmarkText,
+    BsCheckAll, BsCheckCircleFill, BsShieldCheck,
     BsUpload, BsPlusLg, BsChatDots, BsArrowRight
 } from 'react-icons/bs';
 import Groq from "groq-sdk";
@@ -107,16 +106,16 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
             animate="visible"
         >
             {/* A. HERO SECTION */}
-            <motion.div variants={itemVariants} className="text-center py-12 relative overflow-hidden rounded-3xl bg-gradient-to-b from-primary/5 to-transparent border border-white/5">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent blur-3xl" />
+            <motion.div variants={itemVariants} className="text-center py-12 relative overflow-hidden rounded-3xl bg-gradient-to-b from-teal-500/5 to-transparent border border-teal-500/20">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-teal-500/10 via-transparent to-transparent blur-3xl" />
 
                 <motion.div
                     animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
                     transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                     className="inline-block mb-6 relative"
                 >
-                    <div className="absolute inset-0 bg-primary/30 blur-xl rounded-full" />
-                    <BsStars className="text-6xl text-primary relative z-10" />
+                    <div className="absolute inset-0 bg-teal-500/30 blur-xl rounded-full" />
+                    <BsRocket className="text-6xl text-teal-400 relative z-10" />
                 </motion.div>
 
                 <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-200 to-gray-400">
@@ -130,12 +129,12 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
             {/* B. STATISTICS CARDS (3 Columns) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Card 1: Cash Position */}
-                <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-amber-500/30 transition-colors">
+                <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-teal-500/20 rounded-2xl p-6 relative overflow-hidden group hover:border-teal-400/50 transition-colors">
                     <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-amber-500/10 rounded-xl text-amber-500">
+                        <div className="p-3 bg-teal-500/10 rounded-xl text-teal-400">
                             <BsCashStack className="text-2xl" />
                         </div>
-                        <span className="px-2 py-1 bg-amber-500/10 text-amber-500 text-[10px] uppercase font-bold rounded-full">Live Monitor</span>
+                        <span className="px-2 py-1 bg-teal-500/10 text-teal-300 text-[10px] uppercase font-bold rounded-full">Live Monitor</span>
                     </div>
                     <div className="text-2xl font-bold mb-1">Cash Position</div>
                     <div className="text-sm text-gray-500 mb-4">Real-time liquidity tracking</div>
@@ -144,42 +143,42 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
                             <AreaChart data={MINI_CASH_DATA}>
                                 <defs>
                                     <linearGradient id="colorCash" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+                                        <stop offset="5%" stopColor="#00C6C2" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#00C6C2" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <Area type="monotone" dataKey="val" stroke="#F59E0B" fillOpacity={1} fill="url(#colorCash)" strokeWidth={2} />
+                                <Area type="monotone" dataKey="val" stroke="#00C6C2" fillOpacity={1} fill="url(#colorCash)" strokeWidth={2} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </motion.div>
 
                 {/* Card 2: Transactions */}
-                <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-emerald-500/30 transition-colors">
+                <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-teal-500/20 rounded-2xl p-6 relative overflow-hidden group hover:border-teal-400/50 transition-colors">
                     <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500">
+                        <div className="p-3 bg-teal-500/10 rounded-xl text-teal-400">
                             <BsReceipt className="text-2xl" />
                         </div>
-                        <span className="px-2 py-1 bg-emerald-500/10 text-emerald-500 text-[10px] uppercase font-bold rounded-full">Auto-Sync</span>
+                        <span className="px-2 py-1 bg-teal-500/10 text-teal-300 text-[10px] uppercase font-bold rounded-full">Auto-Sync</span>
                     </div>
                     <div className="text-2xl font-bold mb-1">Transactions</div>
                     <div className="text-sm text-gray-500 mb-4">Automated entry logging</div>
                     <div className="h-24 w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={MINI_TXN_DATA}>
-                                <Line type="monotone" dataKey="val" stroke="#10B981" strokeWidth={2} dot={false} />
+                                <Line type="monotone" dataKey="val" stroke="#00C6C2" strokeWidth={2} dot={false} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
                 </motion.div>
 
                 {/* Card 3: Documents */}
-                <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-purple-500/30 transition-colors">
+                <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-teal-500/20 rounded-2xl p-6 relative overflow-hidden group hover:border-teal-400/50 transition-colors">
                     <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-purple-500/10 rounded-xl text-purple-500">
+                        <div className="p-3 bg-teal-500/10 rounded-xl text-teal-400">
                             <BsFileEarmarkText className="text-2xl" />
                         </div>
-                        <span className="px-2 py-1 bg-purple-500/10 text-purple-500 text-[10px] uppercase font-bold rounded-full">OCR Ready</span>
+                        <span className="px-2 py-1 bg-teal-500/10 text-teal-300 text-[10px] uppercase font-bold rounded-full">OCR Ready</span>
                     </div>
                     <div className="text-2xl font-bold mb-1">Documents</div>
                     <div className="text-sm text-gray-500 mb-4">Smart extraction & storage</div>
@@ -188,7 +187,7 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
                             <PieChart>
                                 <Pie data={DOCS_DATA} innerRadius={25} outerRadius={35} paddingAngle={5} dataKey="value">
                                     {DOCS_DATA.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={['#A855F7', '#EC4899', '#6366F1'][index % 3]} />
+                                        <Cell key={`cell-${index}`} fill={['#00FFD1', '#00C6C2', '#00B4AC'][index % 3]} />
                                     ))}
                                 </Pie>
                             </PieChart>
@@ -200,13 +199,13 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
             {/* C. AI CAPABILITIES */}
             <motion.div variants={itemVariants}>
                 <div className="flex items-center gap-3 mb-6">
-                    <BsLightningChargeFill className="text-yellow-400 text-xl animate-pulse" />
+                    <BsCheckAll className="text-teal-400 text-xl" />
                     <h2 className="text-xl font-bold">AI-Powered Capabilities</h2>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {aiCapabilities.map((cap, idx) => (
-                        <div key={idx} className="bg-white/[0.03] border border-white/5 rounded-xl p-4 flex items-center gap-3 hover:bg-white/[0.05] transition-colors">
-                            <BsCheckCircleFill className="text-primary text-lg shrink-0" />
+                        <div key={idx} className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-4 flex items-center gap-3 hover:bg-teal-500/20 transition-colors">
+                            <BsCheckCircleFill className="text-teal-400 text-lg shrink-0" />
                             <span className="text-sm text-gray-300 font-medium">{cap}</span>
                         </div>
                     ))}
@@ -216,15 +215,15 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
             {/* D. FINANCIAL OVERVIEW DASHBOARD */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[400px]">
                 {/* Large Chart 1: Revenue Trend */}
-                <motion.div variants={itemVariants} className="lg:col-span-2 bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 flex flex-col">
+                <motion.div variants={itemVariants} className="lg:col-span-2 bg-[#0A0A0A] border border-teal-500/20 rounded-2xl p-6 flex flex-col">
                     <h3 className="text-lg font-bold mb-4">Projected Revenue Trend</h3>
                     <div className="flex-1 w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={TREND_DATA}>
                                 <defs>
                                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#81E6D9" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#81E6D9" stopOpacity={0} />
+                                        <stop offset="5%" stopColor="#00C6C2" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#00C6C2" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
@@ -234,14 +233,14 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
                                     contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #333', borderRadius: '8px' }}
                                     itemStyle={{ color: '#fff' }}
                                 />
-                                <Area type="monotone" dataKey="value" stroke="#81E6D9" fillOpacity={1} fill="url(#colorRevenue)" strokeWidth={3} />
+                                <Area type="monotone" dataKey="value" stroke="#00C6C2" fillOpacity={1} fill="url(#colorRevenue)" strokeWidth={3} />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </motion.div>
 
                 {/* Large Chart 2: Category Distribution */}
-                <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-6 flex flex-col">
+                <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-teal-500/20 rounded-2xl p-6 flex flex-col">
                     <h3 className="text-lg font-bold mb-4">Category Distribution</h3>
                     <div className="flex-1 w-full relative">
                         <ResponsiveContainer width="100%" height="100%">
@@ -256,7 +255,7 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
                                     dataKey="value"
                                 >
                                     {CATEGORY_DATA.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                        <Cell key={`cell-${index}`} fill={['#00FFD1', '#00C6C2', '#00B4AC'][index % 3]} />
                                     ))}
                                 </Pie>
                                 <Legend verticalAlign="bottom" height={36} iconType="circle" />
@@ -276,18 +275,18 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
             </div>
 
             {/* E. SYSTEM STATUS BAR */}
-            <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-4 py-4 px-6 bg-white/[0.02] border border-white/5 rounded-xl">
+            <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-between gap-4 py-4 px-6 bg-teal-500/5 border border-teal-500/20 rounded-xl">
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                        <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse shadow-[0_0_10px_rgba(0,198,194,0.5)]" />
                         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">System Active</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <BsShieldCheck className="text-primary text-sm" />
+                        <BsShieldCheck className="text-teal-400 text-sm" />
                         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Secure Connection</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <BsStars className="text-amber-400 text-sm animate-pulse" />
+                        <BsCheckAll className="text-teal-400 text-sm" />
                         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">AI Insight Engine Ready</span>
                     </div>
                 </div>
@@ -302,12 +301,12 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => onAction('upload_document')}
-                    className="group relative p-6 bg-purple-500/10 border border-purple-500/20 rounded-2xl hover:bg-purple-500/20 transition-all text-left"
+                    className="group relative p-6 bg-teal-500/10 border border-teal-500/20 rounded-2xl hover:bg-teal-500/20 transition-all text-left"
                 >
-                    <div className="absolute top-4 right-4 p-2 bg-purple-500/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                        <BsArrowRight className="text-purple-400" />
+                    <div className="absolute top-4 right-4 p-2 bg-teal-500/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                        <BsArrowRight className="text-teal-400" />
                     </div>
-                    <div className="p-4 bg-purple-500/20 rounded-xl w-fit mb-4 text-purple-400 group-hover:text-purple-300">
+                    <div className="p-4 bg-teal-500/20 rounded-xl w-fit mb-4 text-teal-400 group-hover:text-teal-300">
                         <BsUpload className="text-3xl" />
                     </div>
                     <h3 className="text-xl font-bold text-white mb-1">Upload Document</h3>
@@ -318,12 +317,12 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => onAction('create_transaction')}
-                    className="group relative p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl hover:bg-emerald-500/20 transition-all text-left"
+                    className="group relative p-6 bg-teal-500/10 border border-teal-500/20 rounded-2xl hover:bg-teal-500/20 transition-all text-left"
                 >
-                    <div className="absolute top-4 right-4 p-2 bg-emerald-500/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                        <BsArrowRight className="text-emerald-400" />
+                    <div className="absolute top-4 right-4 p-2 bg-teal-500/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                        <BsArrowRight className="text-teal-400" />
                     </div>
-                    <div className="p-4 bg-emerald-500/20 rounded-xl w-fit mb-4 text-emerald-400 group-hover:text-emerald-300">
+                    <div className="p-4 bg-teal-500/20 rounded-xl w-fit mb-4 text-teal-400 group-hover:text-teal-300">
                         <BsPlusLg className="text-3xl" />
                     </div>
                     <h3 className="text-xl font-bold text-white mb-1">Create Transaction</h3>
@@ -334,12 +333,12 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => onAction('talk_to_ai')}
-                    className="group relative p-6 bg-amber-500/10 border border-amber-500/20 rounded-2xl hover:bg-amber-500/20 transition-all text-left"
+                    className="group relative p-6 bg-teal-500/10 border border-teal-500/20 rounded-2xl hover:bg-teal-500/20 transition-all text-left"
                 >
-                    <div className="absolute top-4 right-4 p-2 bg-amber-500/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                        <BsArrowRight className="text-amber-400" />
+                    <div className="absolute top-4 right-4 p-2 bg-teal-500/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                        <BsArrowRight className="text-teal-400" />
                     </div>
-                    <div className="p-4 bg-amber-500/20 rounded-xl w-fit mb-4 text-amber-400 group-hover:text-amber-300">
+                    <div className="p-4 bg-teal-500/20 rounded-xl w-fit mb-4 text-teal-400 group-hover:text-teal-300">
                         <BsChatDots className="text-3xl" />
                     </div>
                     <h3 className="text-xl font-bold text-white mb-1">Talk to AI</h3>

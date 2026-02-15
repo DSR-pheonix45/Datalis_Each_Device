@@ -138,11 +138,11 @@ export default function WorkbenchDetail() {
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#0a0a0a]">
       {/* Top Header */}
-      <header className="flex items-center justify-between px-8 py-4 border-b border-white/5 bg-[#0a0a0a]/50 backdrop-blur-sm sticky top-0 z-10">
+      <header className="flex items-center justify-between px-8 py-4 border-b border-teal-500/20 bg-[#0a0a0a]/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="flex items-center space-x-6">
           <button
             onClick={() => navigate("/dashboard/workbenches")}
-            className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+            className="p-2 text-gray-400 hover:text-teal-300 hover:bg-teal-500/10 rounded-lg transition-all"
           >
             <BsChevronLeft className="text-lg" />
           </button>
@@ -157,17 +157,17 @@ export default function WorkbenchDetail() {
 
         <div className="flex items-center space-x-4">
           <div className="relative group hidden md:block">
-            <BsSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary-300 transition-colors" />
+            <BsSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-teal-400 transition-colors" />
             <input
               type="text"
               placeholder="Search transactions..."
-              className="bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-300/30 focus:border-primary-300/30 transition-all w-64"
+              className="bg-white/5 border border-teal-500/20 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-400/30 focus:border-teal-400/30 transition-all w-64"
             />
           </div>
 
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all text-sm font-medium"
+            className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-300 hover:bg-teal-500/20 hover:text-teal-200 transition-all text-sm font-medium"
           >
             <BsFileEarmarkText className="text-base" />
             <span>Documents</span>
@@ -192,7 +192,7 @@ export default function WorkbenchDetail() {
       </header>
 
       {/* Navigation Tabs */}
-      <nav className="px-8 border-b border-white/5 bg-[#0a0a0a]">
+      <nav className="px-8 border-b border-teal-500/20 bg-[#0a0a0a]">
         <div className="flex space-x-8">
           {tabs.map((tab) => (
             <button
@@ -210,7 +210,7 @@ export default function WorkbenchDetail() {
                 <span>{tab}</span>
               </div>
               {activeTab === tab && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-400 rounded-full" />
               )}
             </button>
           ))}
