@@ -1,3 +1,5 @@
+import typography from '@tailwindcss/typography';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -5,6 +7,8 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   darkMode: 'class',
+
+  // ... rest of theme ...
   theme: {
     screens: {
       'xs': '480px',    // Extra small devices
@@ -125,5 +129,7 @@ export default {
       }
     },
   },
-  plugins: [],
+  plugins: [
+    typography
+  ],
 }

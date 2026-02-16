@@ -1,7 +1,6 @@
 import { extractPdfText } from "./pdfParser";
 import { read, utils } from "xlsx";
 import mammoth from "mammoth";
-import Papa from "papaparse";
 
 // LLM API service - Using Groq API (100% FREE & FAST!)
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -15,28 +14,8 @@ const GROQ_API_KEY =
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
 
-// Provider-specific context limits (characters)
-const PROVIDER_LIMITS = {
-  groq: 18000,      // Very low TPM for free tier (approx 4.5k tokens)
-  gemini: 150000,   // Flash has 1M context
-  openrouter: 100000 // Most models have large context
-};
-
-/**
- * Truncate context based on the provider's limits
- */
-function getTruncatedContext(context, provider) {
-  if (!context) return "";
-  const limit = PROVIDER_LIMITS[provider] || 40000;
-  if (context.length > limit) {
-    return context.substring(0, limit) + `\n\n... (Context truncated to ${limit} characters for ${provider}) ...`;
-  }
-  return context;
-}
-
 // FREE Models on Groq (super fast!)
 const FREE_MODELS = [
-  "mixtral-8x7b-32768", // Mistral - High quality, good for reasoning
   "llama-3.1-8b-instant", // Higher rate limits, best for large context
   "llama-3.3-70b-versatile", // Very smart but strict rate limits (1k TPM)
 ];
@@ -102,50 +81,51 @@ async function readFileContent(file) {
   if (fileExtension === "csv") {
     try {
       const csvContent = await file.text();
-      
-      return new Promise((resolve) => {
-        Papa.parse(csvContent, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => {
-            const data = results.data;
-            const headers = results.meta.fields || [];
-            
-            // LIMIT INCREASE: Handle up to 10000 rows or 100KB of text
-            const MAX_ROWS = 10000;
-            const MAX_CHARS = 100000; // Allow 100k chars for CSV context
+      console.log("CSV content length:", csvContent.length);
 
-            let formattedData = `CSV Document: ${file.name}\nSize: ${file.size} bytes\nTotal Rows: ${data.length}\n\nHeaders: ${headers.join(" | ")}\n\nData Preview:\n`;
+      // Parse CSV into structured data
+      const lines = csvContent.split("\n").filter((line) => line.trim());
+      if (lines.length > 0) {
+        const headers = lines[0]
+          .split(",")
+          .map((h) => h.trim().replace(/"/g, ""));
 
-            let currentChars = formattedData.length;
-            let processedRows = 0;
+        // LIMIT INCREASE: Handle up to 5000 rows or 200KB of text
+        const MAX_ROWS = 5000;
+        const MAX_CHARS = 15000; // Adjusted for stricter Groq free tier limits (approx 4k tokens)
 
-            for (let i = 0; i < Math.min(data.length, MAX_ROWS); i++) {
-              const row = data[i];
-              const rowString = `Row ${i + 1}: ${Object.values(row).join(" | ")}\n`;
+        const dataRows = lines.slice(1, Math.min(lines.length, MAX_ROWS + 1));
 
-              if (currentChars + rowString.length > MAX_CHARS) {
-                formattedData += `\n... [Truncated after ${processedRows} rows due to context limit] ...`;
-                break;
-              }
+        let formattedData = `CSV Document: ${file.name}\nSize: ${file.size} bytes\nTotal Rows: ${lines.length - 1}\n\nHeaders: ${headers.join(" | ")}\n\nData Preview:\n`;
 
-              formattedData += rowString;
-              currentChars += rowString.length;
-              processedRows++;
-            }
+        let currentChars = formattedData.length;
+        let processedRows = 0;
 
-            if (data.length > processedRows && !formattedData.includes("Truncated")) {
-              formattedData += `\n... and ${data.length - processedRows} more rows (truncated)`;
-            }
+        for (let i = 0; i < dataRows.length; i++) {
+          const row = dataRows[i];
+          const values = row.split(",").map((v) => v.trim().replace(/"/g, ""));
+          const rowString = `Row ${i + 1}: ${values.join(" | ")}\n`;
 
-            resolve(formattedData);
-          },
-          error: (error) => {
-            console.warn("PapaParse error:", error);
-            resolve(`CSV Document: ${file.name}\nError: Could not parse CSV content. ${error.message}`);
+          if (currentChars + rowString.length > MAX_CHARS) {
+            formattedData += `\n... [Truncated after ${processedRows} rows due to size limit] ...`;
+            break;
           }
-        });
-      });
+
+          formattedData += rowString;
+          currentChars += rowString.length;
+          processedRows++;
+        }
+
+        if (lines.length > MAX_ROWS && processedRows === MAX_ROWS) {
+          formattedData += `\n... and ${lines.length - 1 - MAX_ROWS} more rows (truncated)`;
+        }
+
+        return formattedData;
+      }
+
+      return `CSV Document: ${file.name}\nSize: ${file.size
+        } bytes\n\nContent:\n${csvContent.substring(0, 5000)}\n${csvContent.length > 5000 ? "\n... (truncated)" : ""
+        }`;
     } catch (error) {
       console.warn("Failed to parse CSV file:", error);
       return `CSV Document: ${file.name}\nSize: ${file.size} bytes\nError: Could not parse CSV content\nPlease ensure this is a valid CSV file.`;
@@ -153,25 +133,14 @@ async function readFileContent(file) {
   }
 
   // Handle Office documents
-  if (fileExtension === "docx") {
+  if (fileExtension === "docx" || fileExtension === "doc") {
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const result = await mammoth.extractRawText({ arrayBuffer });
-      const text = result.value;
-      const messages = result.messages;
-      
-      if (messages.length > 0) {
-        console.warn("Mammoth messages during DOCX parsing:", messages);
-      }
-
-      if (!text || text.trim().length === 0) {
-        return `Word Document: ${file.name}\n(Document appears to be empty or contains no readable text)`;
-      }
-
-      return `Word Document: ${file.name}\nSize: ${file.size} bytes\n\nContent:\n${text}`;
+      const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+      return `Word Document: ${file.name}\n${result.value}`;
     } catch (error) {
-      console.warn("Failed to parse Word document:", error);
-      return `Word Document: ${file.name}\nSize: ${file.size} bytes\nError: Could not extract text from Word document. ${error.message}`;
+      console.warn("Failed to parse Word file:", error);
+      return `Word Document: ${file.name}\nSize: ${file.size} bytes\nError: Could not extract text from Word document`;
     }
   }
 }
@@ -247,13 +216,12 @@ async function callGroqAPI(request, model) {
 
     console.log(`🚀 Calling Groq API with model: ${model}`);
 
-    // 2. Map history and remove all unsupported properties (Groq only wants role and content)
+    // 2. Map history and remove 'id' property if present (Groq doesn't like it)
+    // 2. Map history to strict format required by LLM APIs (only role and content)
     const formattedHistory = (request.history || []).map(msg => ({
       role: msg.role,
       content: msg.content
     }));
-
-    const truncatedContext = getTruncatedContext(request.context, "groq");
 
     const response = await fetch(GROQ_API_URL, {
       method: "POST",
@@ -266,39 +234,36 @@ async function callGroqAPI(request, model) {
         messages: [
           {
             role: "system",
-            content: `### IDENTITY
-You are Dabby Consultant, an elite Financial Auditor and Forensic Accountant. You operate with absolute precision and ZERO tolerance for fabrication.
+            content: `You are Dabby Consultant, an expert financial AI assistant. Your goal is to provide specific, actionable financial insights.
 
-### MISSION
-Your mission is to analyze business documents. If a data point is not explicitly present in the provided context, you MUST report it as missing. 
+CRITICAL BEHAVIOR RULES:
+1.  **Be Concise**: Avoid long, "documentation-style" lists. Get straight to the point.
+2.  **Structure**: Use short paragraphs. Use bolding for key metrics.
+3.  **Suggestions**: Instead of a bullet list of "what I can do", provide 2-3 specific, clickable "Suggestion Chips" at the end of your response for the user's next likely action.
+    Format them EXACTLY like this at the very end:
+    [SUGGESTION: Analyze detail]
+    [SUGGESTION: Identify trends]
+    [SUGGESTION: Compare periods]
 
-### THE "ZERO FABRICATION" PROTOCOL (MANDATORY)
-1. **NO EXTRAPOLATION**: Never "fill in the blanks". If an invoice ID, date, or customer name is missing from the data, do not invent one to complete a table.
-2. **SOURCE VERIFICATION**: Every single digit, date, and name in your response must have a direct 1:1 match in the "RELEVANT DATA" section below.
-3. **HALLUCINATION IS FAILURE**: Fabricating even a single customer name or date is a critical system failure. If you are unsure, state: "Data not available in source files."
-4. **DATE INTEGRITY**: Respect the source dates. If a file contains data from 2024, do not transform it to 2026.
-5. **AUDIT TRAIL**: If asked to generate a table, only include rows that exist in the source data. Do not add "sample" or "placeholder" rows.
+4.  **Tone**: Professional but strictly "product-like"—modern, sharp, and direct. Avoid filling space with polite fluff.
+5.  **Data Analysis**: If data is provided, analyze it deeply for anomalies, trends, and growth metrics.
+6.  **Realtime**: If realtime data is provided in context, use it. Otherwise, admit lack of live data.
 
-### OUTPUT STYLE
-- **Conversational & Professional**: Maintain a helpful, natural tone. Avoid rigid headers like "Direct Answer" or "Data Source" unless providing complex reports.
-- **Evidence-Based**: While being natural, your answers must still be strictly derived from the provided context.
-- **Transparency**: If you use data from a specific file, mention it naturally (e.g., "According to the invoice from...") instead of using a dedicated section.
-- **Handling Gaps**: If information is missing, simply state it naturally as part of your response.
-
-Current System Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`,
+Current Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`,
           },
           ...formattedHistory,
           {
             role: "user",
             content:
-              `SOURCE DATA CHECK: I am providing you with files. Do not use your internal knowledge to create fake data. Only use the provided context.
-
-USER QUERY: ${request.query}` +
-              (truncatedContext ? `\n\n=== RELEVANT DATA / FILE CONTENT ===\n${truncatedContext}` : "\n\n(No file context provided. Do not invent any data.)"),
+              request.query +
+              (request.context ? `\n\n=== RELEVANT DATA / FILE CONTENT ===\n${request.context}` : "") +
+              (request.web_search
+                ? "\n\nInclude relevant information from the web."
+                : ""),
           },
         ],
-        max_tokens: 4096,
-        temperature: 0.1, // Drastically lowered to 0.1 to minimize "creative" hallucination
+        max_tokens: 4096, // Increased for longer responses
+        temperature: 0.6, // Slightly lowered for more analytical precision
       }),
     });
 
@@ -332,11 +297,7 @@ USER QUERY: ${request.query}` +
     }
 
     console.log(`✅ Groq API succeeded with ${model}`);
-    return { 
-      response: responseText,
-      context: request.context,
-      model: model
-    };
+    return { response: responseText };
   } catch (error) {
     console.error(`❌ Groq API call failed with ${model}:`, error);
     throw error;
@@ -351,38 +312,12 @@ async function callGeminiAPI(request) {
     if (!GEMINI_API_KEY) throw new Error("Gemini API key not configured");
 
     console.log("🚀 Falling back to Gemini API...");
-    
-    // Using v1beta endpoint which has better support for latest models
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-    
-    const systemPrompt = `### IDENTITY
-You are Dabby Consultant, an elite Financial Auditor and Forensic Accountant. You operate with absolute precision and ZERO tolerance for fabrication.
 
-### MISSION
-Your mission is to analyze business documents. If a data point is not explicitly present in the provided context, you MUST report it as missing. 
+    // Updated to v1 API endpoint (v1beta is deprecated and often fails)
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-### THE "ZERO FABRICATION" PROTOCOL (MANDATORY)
-1. **NO EXTRAPOLATION**: Never "fill in the blanks". If an invoice ID, date, or customer name is missing from the data, do not invent one to complete a table.
-2. **SOURCE VERIFICATION**: Every single digit, date, and name in your response must have a direct 1:1 match in the "RELEVANT DATA" section below.
-3. **HALLUCINATION IS FAILURE**: Fabricating even a single customer name or date is a critical system failure. If you are unsure, state: "Data not available in source files."
-4. **DATE INTEGRITY**: Respect the source dates. If a file contains data from 2024, do not transform it to 2026.
-5. **AUDIT TRAIL**: If asked to generate a table, only include rows that exist in the source data. Do not add "sample" or "placeholder" rows.
-
-### OUTPUT STYLE
-- **Conversational & Professional**: Maintain a helpful, natural tone. Avoid rigid headers like "Direct Answer" or "Data Source" unless providing complex reports.
-- **Evidence-Based**: While being natural, your answers must still be strictly derived from the provided context.
-- **Transparency**: If you use data from a specific file, mention it naturally (e.g., "According to the invoice from...") instead of using a dedicated section.
-- **Handling Gaps**: If information is missing, simply state it naturally as part of your response.
-
-Current System Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
-
-    const truncatedContext = getTruncatedContext(request.context, "gemini");
-
-    // Map history for Gemini format
-    const history = (request.history || []).map(msg => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }]
-    }));
+    const systemPrompt = `You are Dabby Consultant, an expert financial AI assistant. Your goal is to provide specific, actionable financial insights.
+    Be concise, professional, and provide 2-3 specific clickable suggestions at the end in the format [SUGGESTION: Action].`;
 
     const response = await fetch(url, {
       method: "POST",
@@ -391,14 +326,13 @@ Current System Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long',
       },
       body: JSON.stringify({
         contents: [
-          ...history,
           {
             role: "user",
-            parts: [{ text: `SYSTEM INSTRUCTIONS: ${systemPrompt}\n\nUSER QUERY: ${request.query}${truncatedContext ? `\n\nCONTEXT: ${truncatedContext}` : ""}` }]
+            parts: [{ text: `SYSTEM INSTRUCTIONS: ${systemPrompt}\n\nUSER QUERY: ${request.query}${request.context ? `\n\nCONTEXT: ${request.context}` : ""}` }]
           }
         ],
         generationConfig: {
-          temperature: 0.1, // Lowered for precision
+          temperature: 0.7,
           maxOutputTokens: 2048,
         }
       })
@@ -411,15 +345,11 @@ Current System Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long',
 
     const data = await response.json();
     const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (!responseText) throw new Error("No response from Gemini API");
 
     console.log("✅ Gemini API succeeded");
-    return { 
-      response: responseText,
-      context: request.context,
-      model: "gemini-1.5-flash"
-    };
+    return { response: responseText };
   } catch (error) {
     console.error("❌ Gemini API call failed:", error);
     throw error;
@@ -435,57 +365,26 @@ async function callOpenRouterAPI(request) {
 
     console.log("🚀 Falling back to OpenRouter API...");
 
-    const truncatedContext = getTruncatedContext(request.context, "openrouter");
-
-    // Map history and sanitize messages
-    const formattedHistory = (request.history || []).map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }));
-
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": window.location.origin,
-        "X-Title": "Dabby Consultant"
+        "HTTP-Referer": "https://datalis.ai",
+        "X-Title": "Datalis"
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-001", 
+        model: "google/gemini-2.0-flash-001", // Good balanced model on OpenRouter
         messages: [
           {
             role: "system",
-            content: `### IDENTITY
-You are Dabby Consultant, an elite Financial Auditor and Forensic Accountant. You operate with absolute precision and ZERO tolerance for fabrication.
-
-### MISSION
-Your mission is to analyze business documents. If a data point is not explicitly present in the provided context, you MUST report it as missing. 
-
-### THE "ZERO FABRICATION" PROTOCOL (MANDATORY)
-1. **NO EXTRAPOLATION**: Never "fill in the blanks". If an invoice ID, date, or customer name is missing from the data, do not invent one to complete a table.
-2. **SOURCE VERIFICATION**: Every single digit, date, and name in your response must have a direct 1:1 match in the "RELEVANT DATA" section below.
-3. **HALLUCINATION IS FAILURE**: Fabricating even a single customer name or date is a critical system failure. If you are unsure, state: "Data not available in source files."
-4. **DATE INTEGRITY**: Respect the source dates. If a file contains data from 2024, do not transform it to 2026.
-5. **AUDIT TRAIL**: If asked to generate a table, only include rows that exist in the source data. Do not add "sample" or "placeholder" rows.
-
-### OUTPUT STYLE
-- **Conversational & Professional**: Maintain a helpful, natural tone. Avoid rigid headers like "Direct Answer" or "Data Source" unless providing complex reports.
-- **Evidence-Based**: While being natural, your answers must still be strictly derived from the provided context.
-- **Transparency**: If you use data from a specific file, mention it naturally (e.g., "According to the invoice from...") instead of using a dedicated section.
-- **Handling Gaps**: If information is missing, simply state it naturally as part of your response.
-
-Current System Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
+            content: "You are Dabby Consultant, an expert financial AI assistant."
           },
-          ...formattedHistory,
           {
             role: "user",
-            content: `SOURCE DATA CHECK: I am providing you with files. Do not use your internal knowledge to create fake data. Only use the provided context.
-            
-            USER QUERY: ${request.query}` + (truncatedContext ? `\n\n=== RELEVANT DATA / FILE CONTENT ===\n${truncatedContext}` : "\n\n(No file context provided. Do not invent any data.)")
+            content: request.query + (request.context ? `\n\nContext: ${request.context}` : "")
           }
-        ],
-        temperature: 0.1
+        ]
       })
     });
 
@@ -500,11 +399,7 @@ Current System Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long',
     if (!responseText) throw new Error("No response from OpenRouter API");
 
     console.log("✅ OpenRouter API succeeded");
-    return { 
-      response: responseText,
-      context: request.context,
-      model: "google/gemini-2.0-flash-001"
-    };
+    return { response: responseText };
   } catch (error) {
     console.error("❌ OpenRouter API call failed:", error);
     throw error;
@@ -529,38 +424,17 @@ export async function callLLMDirectly(request) {
         console.warn("Auth error detected, skipping other Groq models...");
         break; // Don't bother with other models if API key is invalid
       }
-      
+
       if (i === FREE_MODELS.length - 1) {
         console.log("All Groq models failed.");
       }
     }
   }
 
-  // 2. Fallback to Gemini if Groq fails
-  if (GEMINI_API_KEY) {
-    try {
-      console.log("🚀 Trying Gemini fallback...");
-      const result = await callGeminiAPI(request);
-      return result;
-    } catch (error) {
-      console.warn("❌ Gemini fallback failed:", error.message);
-    }
-  }
-
-  // 3. Fallback to OpenRouter as last resort
-  if (OPENROUTER_API_KEY) {
-    try {
-      console.log("🚀 Trying OpenRouter fallback...");
-      const result = await callOpenRouterAPI(request);
-      return result;
-    } catch (error) {
-      console.error("❌ OpenRouter fallback failed:", error.message);
-    }
-  }
-
+  // If all Groq models fail, return error
   return {
-    response: "I'm sorry, I'm having trouble connecting to my AI engines. This could be due to invalid API keys or rate limits. Please check your configuration in the .env file.",
-    error: "All LLM providers failed"
+    response: "I'm sorry, I'm having trouble connecting to Groq API. This could be due to rate limits or network issues. Please try again in a moment.",
+    error: "All Groq models failed"
   };
 }
 
@@ -593,10 +467,9 @@ export async function callLLMWithFallback(request) {
           console.log(`Applying Local RAG to ${file.name} with query: "${request.query}"`);
           finalContent = LocalRAG.searchCSV(rawContent, request.query || "", 60); // Get top 60 relevant rows
         } else {
-          // For non-CSV, increase limit to allow more document context
-          // Groq models have 128k context, so 50k chars is safe and useful
-          if (finalContent.length > 50000) {
-            finalContent = finalContent.substring(0, 50000) + "\n...(Truncated for size)...";
+          // For non-CSV, hard limit to prevent crashing
+          if (finalContent.length > 6000) {
+            finalContent = finalContent.substring(0, 6000) + "\n...(Truncated for size)...";
           }
         }
 
@@ -714,7 +587,7 @@ Keep the response concise (2-3 paragraphs max) and use business-friendly languag
  */
 export async function discoverInsightsWithAI(headers, sampleData, fileName) {
   const isTransposed = headers.length > 20 && sampleData.length < 5;
-  
+
   const prompt = `
     You are a Principal Product Engineer and FP&A Analyst. 
     I have a file named "${fileName}".
@@ -762,7 +635,7 @@ export async function discoverInsightsWithAI(headers, sampleData, fileName) {
 
     const jsonMatch = result.response.match(/\{[\s\S]*\}/);
     const jsonStr = jsonMatch ? jsonMatch[0] : result.response;
-    
+
     return JSON.parse(jsonStr);
   } catch (error) {
     console.error("Error in AI discovery:", error);

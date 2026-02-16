@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FiMic, FiMicOff, FiAlertCircle } from 'react-icons/fi';
 
-export default function VoiceInput({ 
-  onTranscript, 
+export default function VoiceInput({
+  onTranscript,
   onFinalTranscript,
   disabled = false,
   className = ''
@@ -25,7 +25,7 @@ export default function VoiceInput({
     recognition.interimResults = true; // Show results as user speaks
     recognition.lang = 'en-US'; // Primary language
     recognition.maxAlternatives = 3; // Get multiple alternatives for better accuracy
-    
+
     return recognition;
   }, []);
 
@@ -37,7 +37,7 @@ export default function VoiceInput({
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
+
     if (!SpeechRecognition) {
       setIsSupported(false);
       return;
@@ -82,7 +82,7 @@ export default function VoiceInput({
         const result = event.results[i];
         // Get the most confident result
         const transcript = result[0].transcript;
-        
+
         if (result.isFinal) {
           finalTranscript += transcript + ' ';
         } else {
@@ -92,7 +92,7 @@ export default function VoiceInput({
 
       // Combine final and interim for display
       const currentTranscript = (finalTranscript + interimTranscript).trim();
-      
+
       if (currentTranscript) {
         setTranscript(currentTranscript);
         onTranscript?.(currentTranscript);
@@ -107,14 +107,12 @@ export default function VoiceInput({
       console.error('Speech recognition error:', event.error);
       isListeningRef.current = false;
       setIsListening(false);
-      
+
       // Only show error for actual problems, not aborted
       if (event.error === 'aborted') return;
-      
+
       switch (event.error) {
-        case 'not-allowed':
-          setError('Microphone access denied. Enable in browser settings.');
-          break;
+
         case 'no-speech':
           // Don't show error for no speech - just silently stop
           break;
@@ -123,6 +121,10 @@ export default function VoiceInput({
           break;
         case 'audio-capture':
           setError('No microphone found. Please connect one.');
+          break;
+        case 'not-allowed':
+        case 'service-not-allowed':
+          setError('Microphone permission blocked.');
           break;
         default:
           // Don't show generic errors
@@ -188,11 +190,10 @@ export default function VoiceInput({
         type="button"
         onClick={toggleListening}
         disabled={disabled}
-        className={`group relative p-2 rounded-md border transition-all duration-200 focus:outline-none focus:ring-1 ${
-          isListening 
-            ? 'border-red-500/50 bg-red-500/10 text-red-400 ring-1 ring-red-500/30' 
-            : 'border-gray-700/50 bg-transparent text-gray-400 hover:text-teal-400 hover:border-teal-500/40 hover:bg-teal-500/5 focus:ring-teal-500/30'
-        } disabled:opacity-40 disabled:cursor-not-allowed`}
+        className={`group relative p-2 rounded-md border transition-all duration-200 focus:outline-none focus:ring-1 ${isListening
+          ? 'border-red-500/50 bg-red-500/10 text-red-400 ring-1 ring-red-500/30'
+          : 'border-gray-700/50 bg-transparent text-gray-400 hover:text-teal-400 hover:border-teal-500/40 hover:bg-teal-500/5 focus:ring-teal-500/30'
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
         title={isListening ? 'Stop recording' : 'Voice input (hold to speak)'}
         aria-label={isListening ? 'Stop voice recording' : 'Start voice recording'}
         aria-pressed={isListening}
@@ -204,7 +205,7 @@ export default function VoiceInput({
             <span className="absolute inset-0 rounded-md bg-red-500/20 animate-pulse" />
           </>
         )}
-        
+
         {/* Icon */}
         <span className="relative z-10">
           {isListening ? (

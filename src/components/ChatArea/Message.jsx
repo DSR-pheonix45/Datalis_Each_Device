@@ -89,6 +89,49 @@ const Message = ({ message }) => {
                                     >
                                         {message.content}
 
+                                        {/* Workbench Context Display */}
+                                        {message.options?.workbenchId && (
+                                            <div className="mt-3 pt-3 border-t border-white/10">
+                                                <div className="flex items-center gap-2 text-xs text-teal-400 mb-2">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                    </svg>
+                                                    <span className="font-semibold">Workbench Context Included</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Attached Documents Display */}
+                                        {message.options?.selectedDocuments && message.options.selectedDocuments.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-white/10">
+                                                <div className="flex items-center gap-2 text-xs text-purple-400 mb-2">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                    </svg>
+                                                    <span className="font-semibold">{message.options.selectedDocuments.length} Document(s) Attached</span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {message.options.selectedDocuments.map((doc, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            className="flex items-center gap-2 bg-purple-500/10 px-3 py-1.5 rounded-lg border border-purple-500/20 text-xs"
+                                                        >
+                                                            <svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                            </svg>
+                                                            <span className="text-purple-200">{doc.file_name}</span>
+                                                            {doc.document_type && (
+                                                                <span className="text-purple-400/60 uppercase text-[10px]">• {doc.document_type}</span>
+                                                            )}
+                                                            {doc.classification_confidence && (
+                                                                <span className="text-purple-400/60 text-[10px]">• {Math.round(doc.classification_confidence * 100)}%</span>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Attached Files Display */}
                                         {(message.metadata?.files || message.options?.uploadedFiles) && (message.metadata?.files?.length > 0 || message.options?.uploadedFiles?.length > 0) && (
                                             <div className="mt-4 flex flex-wrap gap-2 pt-3 border-t border-white/10">

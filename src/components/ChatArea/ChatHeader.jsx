@@ -17,7 +17,7 @@ const ChatHeader = () => {
               Early preview agent — it may make mistakes. Double-check critical outputs.
             </p>
           </div>
-          
+
           <div className="relative w-56 hidden md:block">
             <input
               type="text"

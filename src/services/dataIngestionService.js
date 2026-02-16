@@ -6,6 +6,7 @@
  */
 
 import Papa from "papaparse";
+import { read, utils } from "xlsx";
 import { supabase } from "../lib/supabase";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -59,6 +60,31 @@ export async function uploadCSVFile(file) {
     };
   }
 }
+
+/**
+ * Parses an Excel file and returns its content as a string (CSV format)
+ * @param {ArrayBuffer} arrayBuffer - The Excel file content
+ * @param {string} fileName - The file name
+ * @returns {Promise<string>} - The CSV content
+ */
+export async function parseExcelFile(arrayBuffer, fileName) {
+  try {
+    const workbook = read(arrayBuffer, { type: 'array' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    // Convert to CSV string for uniform processing
+    const csvContent = utils.sheet_to_csv(sheet);
+    return csvContent;
+  } catch (error) {
+    console.error("Error parsing Excel file:", error);
+    throw new Error("Failed to parse Excel file");
+  }
+}
+
+/**
+ * Alias for parseCSVLocally to match llmService expectations
+ */
+export const parseCSVFile = parseCSVLocally;
 
 /**
  * Parse CSV file locally (without uploading)
@@ -359,10 +385,9 @@ export async function getDataset(datasetId) {
       .from("user_datasets")
       .select("*")
       .eq("id", datasetId)
-      .maybeSingle();
+      .single();
 
     if (error) throw error;
-    if (!data) throw new Error("Dataset not found");
 
     return {
       success: true,
@@ -397,16 +422,13 @@ export async function saveColumnMapping(
     }
 
     // Check if mapping already exists for this dataset
-    // Use maybeSingle() because it's perfectly normal for it not to exist yet
-    const { data: existing, error: checkError } = await supabase
+    const { data: existing } = await supabase
       .from("column_mappings")
       .select("id")
       .eq("dataset_id", datasetId)
       .eq("user_id", user.id)
       .eq("is_default", true)
-      .maybeSingle();
-
-    if (checkError) throw checkError;
+      .single();
 
     if (existing) {
       // Update existing mapping
@@ -419,7 +441,7 @@ export async function saveColumnMapping(
         })
         .eq("id", existing.id)
         .select()
-        .maybeSingle();
+        .single();
 
       if (error) throw error;
 
@@ -436,7 +458,7 @@ export async function saveColumnMapping(
           is_default: true,
         })
         .select()
-        .maybeSingle();
+        .single();
 
       if (error) throw error;
 
@@ -461,9 +483,9 @@ export async function getColumnMapping(datasetId) {
       .select("*")
       .eq("dataset_id", datasetId)
       .eq("is_default", true)
-      .maybeSingle();
+      .single();
 
-    if (error) {
+    if (error && error.code !== "PGRST116") {
       throw error;
     }
 
@@ -504,6 +526,8 @@ export async function deleteDataset(datasetId) {
 }
 
 export default {
+  parseExcelFile,
+  parseCSVFile,
   uploadCSVFile,
   parseCSVLocally,
   getUserDatasets,

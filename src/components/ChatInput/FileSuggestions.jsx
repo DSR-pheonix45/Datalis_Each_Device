@@ -120,9 +120,9 @@ const FileSuggestions = ({
   const allSuggestions =
     files.length > 1
       ? [
-          `Analyze all ${files.length} files together and find connections`,
-          ...suggestions.slice(0, 4),
-        ]
+        `Analyze all ${files.length} files together and find connections`,
+        ...suggestions.slice(0, 4),
+      ]
       : suggestions.slice(0, 5);
 
   // In compact mode, show fewer suggestions
@@ -143,17 +143,15 @@ const FileSuggestions = ({
         )}
 
         <div
-          className={`flex gap-1.5 overflow-x-auto scrollbar-hide ${
-            compact ? "flex-nowrap" : "flex-wrap"
-          }`}
+          className={`flex gap-1.5 overflow-x-auto scrollbar-hide ${compact ? "flex-nowrap" : "flex-wrap"
+            }`}
         >
           {displaySuggestions.map((suggestion, index) => (
             <button
               key={index}
               onClick={() => onSuggestionClick(suggestion)}
-              className={`suggestion-card group relative bg-gradient-to-br from-[#1F242C] to-[#161B22] hover:from-[#2A2F36] hover:to-[#1F242C] border border-[#2A2F36] hover:border-[#00C6C2]/50 rounded-lg text-[#9BA3AF] hover:text-white transition-all duration-200 hover:shadow-md hover:shadow-[#00C6C2]/10 focus:outline-none focus:ring-1 focus:ring-[#00C6C2] whitespace-nowrap flex-shrink-0 ${
-                compact ? "px-2.5 py-1.5 text-[11px]" : "px-3 py-2 text-sm"
-              }`}
+              className={`suggestion-card group relative bg-gradient-to-br from-[#1F242C] to-[#161B22] hover:from-[#2A2F36] hover:to-[#1F242C] border border-[#2A2F36] hover:border-[#00C6C2]/50 rounded-lg text-[#9BA3AF] hover:text-white transition-all duration-200 hover:shadow-md hover:shadow-[#00C6C2]/10 focus:outline-none focus:ring-1 focus:ring-[#00C6C2] whitespace-nowrap flex-shrink-0 ${compact ? "px-2.5 py-1.5 text-[11px]" : "px-3 py-2 text-sm"
+                }`}
               style={{ animationDelay: `${index * 30}ms` }}
               title={suggestion}
               aria-label={`Use suggestion: ${suggestion}`}
@@ -162,13 +160,12 @@ const FileSuggestions = ({
                 <span className="leading-tight">
                   {compact
                     ? suggestion.slice(0, 35) +
-                      (suggestion.length > 35 ? "..." : "")
+                    (suggestion.length > 35 ? "..." : "")
                     : suggestion}
                 </span>
                 <BsArrowRight
-                  className={`text-[#00C6C2] opacity-0 group-hover:opacity-100 transition-all duration-200 ${
-                    compact ? "text-[9px]" : "text-xs"
-                  }`}
+                  className={`text-[#00C6C2] opacity-0 group-hover:opacity-100 transition-all duration-200 ${compact ? "text-[9px]" : "text-xs"
+                    }`}
                 />
               </div>
             </button>

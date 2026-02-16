@@ -59,9 +59,9 @@ const MessageList = ({ messages }) => {
         ) : (
           <>
             {messages.map((message, index) => (
-              <Message 
-                key={message.id || `msg-${message.timestamp}-${index}`} 
-                message={message} 
+              <Message
+                key={message.id || `msg-${message.timestamp}-${index}`}
+                message={message}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -69,7 +69,7 @@ const MessageList = ({ messages }) => {
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         div::-webkit-scrollbar {
           width: 8px;
         }

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FiSearch, FiX, FiMessageSquare, FiClock, FiArrowUp, FiArrowDown } from 'react-icons/fi';
 
-export default function ChatSearch({ 
-  isOpen, 
-  onClose, 
-  chatHistory = [], 
+export default function ChatSearch({
+  isOpen,
+  onClose,
+  chatHistory = [],
   onSelectChat,
-  onSearchMessages 
+  onSearchMessages
 }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -34,13 +34,13 @@ export default function ChatSearch({
 
     const searchTimeout = setTimeout(async () => {
       setIsSearching(true);
-      
+
       // Search in chat history
       const queryLower = query.toLowerCase();
       const filtered = chatHistory
-        .filter(chat => 
+        .filter(chat =>
           chat.title?.toLowerCase().includes(queryLower) ||
-          chat.messages?.some(msg => 
+          chat.messages?.some(msg =>
             msg.content?.toLowerCase().includes(queryLower)
           )
         )
@@ -49,7 +49,7 @@ export default function ChatSearch({
           const matchingMessages = chat.messages?.filter(msg =>
             msg.content?.toLowerCase().includes(queryLower)
           ) || [];
-          
+
           return {
             ...chat,
             matchCount: matchingMessages.length,
@@ -94,11 +94,11 @@ export default function ChatSearch({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm" 
-        onClick={onClose} 
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
       />
-      
+
       {/* Search Modal */}
       <div className="relative w-full max-w-2xl mx-4 bg-[#12121a] rounded-2xl border border-gray-800/50 shadow-2xl overflow-hidden animate-slide-up">
         {/* Search Input */}
@@ -161,15 +161,13 @@ export default function ChatSearch({
             <button
               key={chat.id}
               onClick={() => { onSelectChat?.(chat); onClose(); }}
-              className={`w-full flex items-start gap-4 px-5 py-4 text-left transition-colors border-b border-gray-800/30 last:border-0 ${
-                index === selectedIndex 
-                  ? 'bg-teal-500/10' 
+              className={`w-full flex items-start gap-4 px-5 py-4 text-left transition-colors border-b border-gray-800/30 last:border-0 ${index === selectedIndex
+                  ? 'bg-teal-500/10'
                   : 'hover:bg-gray-800/50'
-              }`}
+                }`}
             >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                index === selectedIndex ? 'bg-teal-500/20' : 'bg-gray-800/50'
-              }`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${index === selectedIndex ? 'bg-teal-500/20' : 'bg-gray-800/50'
+                }`}>
                 <FiMessageSquare className={index === selectedIndex ? 'text-teal-400' : 'text-gray-400'} />
               </div>
               <div className="flex-1 min-w-0">
@@ -232,11 +230,11 @@ export default function ChatSearch({
 // Helper function to highlight matching text
 function highlightMatch(text, query) {
   if (!query || !text) return text;
-  
+
   const parts = text.split(new RegExp(`(${escapeRegex(query)})`, 'gi'));
-  
-  return parts.map((part, i) => 
-    part.toLowerCase() === query.toLowerCase() 
+
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.toLowerCase()
       ? <span key={i} className="text-teal-400 font-medium">{part}</span>
       : part
   );
@@ -248,14 +246,14 @@ function escapeRegex(string) {
 
 function formatDate(dateString) {
   if (!dateString) return '';
-  
+
   const date = new Date(dateString);
   const now = new Date();
   const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
-  
+
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }

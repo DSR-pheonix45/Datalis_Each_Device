@@ -63,7 +63,7 @@ export const backendService = {
   /**
    * Uploads and initiates document processing
    */
-  async uploadDocument(workbenchId, file, documentType) {
+  async uploadDocument(workbenchId, file, documentType, ocrData = null) {
     // 1. Upload to storage first (Edge Functions have limits on request size)
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random()}.${fileExt}`;
@@ -84,7 +84,8 @@ export const backendService = {
           file_name: file.name,
           file_size: file.size,
           mime_type: file.type,
-          document_type: documentType
+          document_type: documentType,
+          ocr_data: ocrData // User's pre-processed OCR text
         }
       });
 
