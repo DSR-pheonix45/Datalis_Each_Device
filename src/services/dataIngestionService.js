@@ -67,7 +67,7 @@ export async function uploadCSVFile(file) {
  * @param {string} fileName - The file name
  * @returns {Promise<string>} - The CSV content
  */
-export async function parseExcelFile(arrayBuffer, fileName) {
+export async function parseExcelFile(arrayBuffer) {
   try {
     const workbook = read(arrayBuffer, { type: 'array' });
     const sheetName = workbook.SheetNames[0];

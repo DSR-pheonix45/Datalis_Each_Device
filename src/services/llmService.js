@@ -1,6 +1,7 @@
 import { extractPdfText } from "./pdfParser";
 import { read, utils } from "xlsx";
 import mammoth from "mammoth";
+import { rlService } from "./ReinforcementLearningService"; // Import RL Service
 
 // LLM API service - Using Groq API (100% FREE & FAST!)
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -27,7 +28,7 @@ const FREE_MODELS = [
 /**
  * Read file content based on file type
  */
-async function readFileContent(file) {
+export async function readFileContent(file) {
   const fileExtension = file.name.split(".").pop()?.toLowerCase();
 
   // Handle text-based files
@@ -165,14 +166,29 @@ async function parseExcelFile(arrayBuffer, fileName) {
     // Process each sheet
     workbook.SheetNames.forEach((sheetName) => {
       const sheet = workbook.Sheets[sheetName];
-      // Convert to CSV with extensive limit (limiting to ~1000 rows/columns avoids crashing but allows "big files")
-      const csvContent = utils.sheet_to_csv(sheet, {
-        blankrows: false,
-        skipHidden: true
-      });
-
-      if (csvContent && csvContent.length > 10) {
-        combinedContent.push(`\n=== SHEET: ${sheetName} ===\n${csvContent}`);
+      // Convert to JSON first to get structured data with row numbers
+      const jsonData = utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+      
+      if (jsonData && jsonData.length > 0) {
+        let sheetContent = `\n=== SHEET: ${sheetName} ===\n`;
+        // Add headers
+        const headers = jsonData[0];
+        sheetContent += `Headers: ${headers.join(" | ")}\n`;
+        
+        // Add rows with numbers
+        // Limit to 200 rows per sheet to avoid token overflow
+        const MAX_SHEET_ROWS = 200; 
+        const dataRows = jsonData.slice(1, Math.min(jsonData.length, MAX_SHEET_ROWS + 1));
+        
+        dataRows.forEach((row, index) => {
+           sheetContent += `Row ${index + 2}: ${row.join(" | ")}\n`;
+        });
+        
+        if (jsonData.length > MAX_SHEET_ROWS) {
+            sheetContent += `... [Truncated ${jsonData.length - MAX_SHEET_ROWS} more rows] ...\n`;
+        }
+        
+        combinedContent.push(sheetContent);
       }
     });
 
@@ -216,12 +232,17 @@ async function callGroqAPI(request, model) {
 
     console.log(`🚀 Calling Groq API with model: ${model}`);
 
-    // 2. Map history and remove 'id' property if present (Groq doesn't like it)
     // 2. Map history to strict format required by LLM APIs (only role and content)
     const formattedHistory = (request.history || []).map(msg => ({
       role: msg.role,
       content: msg.content
     }));
+
+    // [RL] Get User Learnings & Strategy
+    const userId = request.userId;
+    const userLearnings = rlService.getLearningsContext(userId);
+    const strategy = rlService.selectStrategy(userId);
+    console.log(`[RL] Applied Strategy: ${strategy.name}`);
 
     const response = await fetch(GROQ_API_URL, {
       method: "POST",
@@ -236,18 +257,31 @@ async function callGroqAPI(request, model) {
             role: "system",
             content: `You are Dabby Consultant, an expert financial AI assistant. Your goal is to provide specific, actionable financial insights.
 
+[USER LEARNINGS FROM PAST SESSIONS]
+${userLearnings}
+
+[CURRENT STRATEGY: ${strategy.name}]
+${strategy.prompt}
+
 CRITICAL BEHAVIOR RULES:
-1.  **Be Concise**: Avoid long, "documentation-style" lists. Get straight to the point.
-2.  **Structure**: Use short paragraphs. Use bolding for key metrics.
-3.  **Suggestions**: Instead of a bullet list of "what I can do", provide 2-3 specific, clickable "Suggestion Chips" at the end of your response for the user's next likely action.
+1.  **NO HALLUCINATIONS / NO FAKE DATA**: 
+    - If the user asks for an overview but provides NO file and NO specific data context, do NOT invent numbers. 
+    - Do NOT generate generic tables with "Investments: $120,000" or similar placeholders. 
+    - Instead, politely state: "I don't have access to your financial data yet. Please upload a file (PDF, CSV, Excel) or connect a Workbench to get started."
+
+2.  **Be Concise**: Avoid long, "documentation-style" lists. Get straight to the point.
+3.  **Structure**: Use short paragraphs. Use bolding for key metrics.
+4.  **Suggestions**: Instead of a bullet list of "what I can do", provide 2-3 specific, clickable "Suggestion Chips" at the end of your response for the user's next likely action.
     Format them EXACTLY like this at the very end:
     [SUGGESTION: Analyze detail]
     [SUGGESTION: Identify trends]
     [SUGGESTION: Compare periods]
 
-4.  **Tone**: Professional but strictly "product-like"—modern, sharp, and direct. Avoid filling space with polite fluff.
-5.  **Data Analysis**: If data is provided, analyze it deeply for anomalies, trends, and growth metrics.
-6.  **Realtime**: If realtime data is provided in context, use it. Otherwise, admit lack of live data.
+5.  **Tone**: Professional but strictly "product-like"—modern, sharp, and direct. Avoid filling space with polite fluff.
+6.  **Data Analysis**: ONLY analyze data that is explicitly provided in the context or files. If data is missing, ask for it.
+7.  **Realtime**: If realtime data is provided in context, use it. Otherwise, admit lack of live data.
+8.  **Explainability & Citations**:
+        CRITICAL: If you used any data from the provided files, you MUST provide at least one specific citation in the text (e.g., "According to the P&L (Row 5)..."). Do NOT output any XML or hidden blocks.
 
 Current Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`,
           },
@@ -317,7 +351,10 @@ async function callGeminiAPI(request) {
     const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     const systemPrompt = `You are Dabby Consultant, an expert financial AI assistant. Your goal is to provide specific, actionable financial insights.
-    Be concise, professional, and provide 2-3 specific clickable suggestions at the end in the format [SUGGESTION: Action].`;
+    
+    CRITICAL: 
+    - If NO data/context is provided, DO NOT hallucinate financial numbers. Politey ask for a file or context.
+    - Be concise, professional, and provide 2-3 specific clickable suggestions at the end in the format [SUGGESTION: Action].`;
 
     const response = await fetch(url, {
       method: "POST",
@@ -374,15 +411,15 @@ async function callOpenRouterAPI(request) {
         "X-Title": "Datalis"
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-001", // Good balanced model on OpenRouter
-        messages: [
+        "model": "google/gemini-2.0-flash-001", // Good balanced model on OpenRouter
+        "messages": [
           {
-            role: "system",
-            content: "You are Dabby Consultant, an expert financial AI assistant."
+            "role": "system",
+            "content": "You are Dabby Consultant, an expert financial AI assistant. If NO context is provided, DO NOT hallucinate numbers. Ask for data."
           },
           {
-            role: "user",
-            content: request.query + (request.context ? `\n\nContext: ${request.context}` : "")
+            "role": "user",
+            "content": request.query + (request.context ? `\n\nContext: ${request.context}` : "")
           }
         ]
       })
@@ -424,17 +461,29 @@ export async function callLLMDirectly(request) {
         console.warn("Auth error detected, skipping other Groq models...");
         break; // Don't bother with other models if API key is invalid
       }
-
-      if (i === FREE_MODELS.length - 1) {
-        console.log("All Groq models failed.");
-      }
     }
   }
 
-  // If all Groq models fail, return error
+  // 2. Fallback to Gemini
+  try {
+    console.log("⚠️ Groq failed, falling back to Gemini...");
+    return await callGeminiAPI(request);
+  } catch (error) {
+    console.warn("❌ Gemini fallback failed:", error.message);
+  }
+
+  // 3. Fallback to OpenRouter
+  try {
+    console.log("⚠️ Gemini failed, falling back to OpenRouter...");
+    return await callOpenRouterAPI(request);
+  } catch (error) {
+    console.warn("❌ OpenRouter fallback failed:", error.message);
+  }
+
+  // If all models fail, return error
   return {
-    response: "I'm sorry, I'm having trouble connecting to Groq API. This could be due to rate limits or network issues. Please try again in a moment.",
-    error: "All Groq models failed"
+    response: "I'm sorry, I'm having trouble connecting to all available AI services (Groq, Gemini, OpenRouter). Please try again later or check your API keys.",
+    error: "All LLM services failed"
   };
 }
 
@@ -444,13 +493,24 @@ export async function callLLMDirectly(request) {
  * Main function that handles RAG context retrieval and LLM calls
  */
 export async function callLLMWithFallback(request) {
-  console.log("callLLMWithFallback called with:", request);
+  console.log("callLLMWithFallback called with:", {
+    query: request.query,
+    contextLength: request.context?.length,
+    filesCount: request.uploaded_files?.length,
+    web_search: request.web_search
+  });
 
   let combinedContext = request.context || "";
 
+  // Add currency context if available
+  if (request.currency) {
+    const currencyNote = `\n=== CURRENCY CONTEXT ===\nUser's confirmed currency: ${request.currency}. Assume all financial figures are in ${request.currency} unless otherwise specified.\n`;
+    combinedContext = currencyNote + combinedContext;
+  }
+
   // 1. Process and upload files if provided
   if (request.uploaded_files && request.uploaded_files.length > 0) {
-    console.log("Processing files for immediate context...");
+    console.log("Processing files for immediate context...", request.uploaded_files);
 
     const { LocalRAG } = await import("./localRAG");
 
@@ -459,17 +519,31 @@ export async function callLLMWithFallback(request) {
 
     for (const file of request.uploaded_files) {
       try {
+        console.log(`Reading file: ${file.name} (${file.type})`);
         const rawContent = await readFileContent(file);
+        
+        if (!rawContent || rawContent.startsWith("Error:") || rawContent.includes("Error: Could not")) {
+            console.warn(`File read warning for ${file.name}:`, rawContent);
+        } else {
+            console.log(`Successfully read ${file.name}, content length: ${rawContent.length}`);
+        }
 
         // If CSV, use RAG to filter relevant rows
         let finalContent = rawContent;
-        if (file.name.endsWith('.csv')) {
+        if (file.name.toLowerCase().endsWith('.csv')) {
           console.log(`Applying Local RAG to ${file.name} with query: "${request.query}"`);
-          finalContent = LocalRAG.searchCSV(rawContent, request.query || "", 60); // Get top 60 relevant rows
+          try {
+            finalContent = LocalRAG.searchCSV(rawContent, request.query || "", 60); // Get top 60 relevant rows
+            console.log(`Local RAG result length: ${finalContent.length}`);
+          } catch (ragError) {
+            console.error("Local RAG failed, using raw content:", ragError);
+            finalContent = rawContent.substring(0, 15000) + "\n...(Truncated due to RAG failure)...";
+          }
         } else {
           // For non-CSV, hard limit to prevent crashing
-          if (finalContent.length > 6000) {
-            finalContent = finalContent.substring(0, 6000) + "\n...(Truncated for size)...";
+          if (finalContent.length > 20000) {
+            console.log(`Truncating large file ${file.name} from ${finalContent.length} to 20000 chars`);
+            finalContent = finalContent.substring(0, 20000) + "\n...(Truncated for size)...";
           }
         }
 
@@ -479,7 +553,11 @@ export async function callLLMWithFallback(request) {
         });
 
       } catch (e) {
-        console.error("Error reading file for RAG", e);
+        console.error(`CRITICAL Error reading file ${file.name}:`, e);
+        processedFiles.push({
+            name: file.name,
+            content: `Error reading file: ${e.message}`
+        });
       }
     }
 
@@ -493,17 +571,10 @@ export async function callLLMWithFallback(request) {
     // Add file content to context immediately
     if (fileContext.trim()) {
       combinedContext += "\n\n=== Relevant File Context (Filtered) ===\n" + fileContext;
-      console.log("Added file content to context, length:", fileContext.length);
+      console.log("Added file content to context, total new length:", combinedContext.length);
+    } else {
+        console.warn("No file content was extracted to add to context.");
     }
-
-    // Skip Supabase upload for now (edge functions not deployed)
-    // TODO: Enable this once edge functions are deployed with CORS configured
-    /*
-    console.log('Uploading files to Supabase for RAG processing...')
-    const uploadResults = await uploadFilesToSupabase(request.uploaded_files, request.workbench_id)
-    const uploadedCount = uploadResults.filter(r => r.success).length
-    console.log(`Uploaded ${uploadedCount}/${uploadResults.length} files successfully for RAG`)
-    */
   }
 
   // 2. Query RAG context from Supabase if needed
@@ -640,5 +711,78 @@ export async function discoverInsightsWithAI(headers, sampleData, fileName) {
   } catch (error) {
     console.error("Error in AI discovery:", error);
     return null;
+  }
+}
+
+/**
+ * Generate Embedding for text using Gemini API
+ * @param {string} text - The text to embed
+ * @returns {Promise<number[]>} - The embedding vector
+ */
+export async function generateEmbedding(text) {
+  try {
+    if (!GEMINI_API_KEY) {
+      console.warn("Gemini API key not configured for embeddings. Returning null.");
+      return null;
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1/models/embedding-001:embedContent?key=${GEMINI_API_KEY}`;
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "models/embedding-001",
+        content: {
+          parts: [{ text: text.substring(0, 2048) }] // Limit text length
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini Embedding API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.embedding.values;
+  } catch (error) {
+    console.error("Error generating embedding:", error);
+    return null; // Return null on failure so caller can handle gracefully
+  }
+}
+
+/**
+ * Generate Raw Completion (for system use)
+ */
+export async function generateRawCompletion(messages, model = "llama-3.1-8b-instant") {
+  try {
+    const apiKey = GROQ_API_KEY;
+    if (!apiKey) throw new Error("GROQ_API_KEY missing");
+
+    const response = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: messages,
+        temperature: 0.1, // Low temp for extraction tasks
+        max_tokens: 4096
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Groq API error: ${response.status} - ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error in generateRawCompletion:", error);
+    throw error;
   }
 }

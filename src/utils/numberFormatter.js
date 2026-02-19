@@ -41,7 +41,6 @@ export function formatNumber(value, options = {}) {
     system = 'indian',
     decimals = 2,
     currency = null,
-    showFullOnHover = true,
     compact = true,
     unit = null,
   } = options;

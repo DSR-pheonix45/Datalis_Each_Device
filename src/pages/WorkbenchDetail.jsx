@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   BsChevronLeft,
@@ -9,7 +9,8 @@ import {
   BsClockHistory,
   BsExclamationTriangleFill,
   BsArrowUpRight,
-  BsBuilding
+  BsBuilding,
+  BsBox
 } from "react-icons/bs";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabase";
@@ -18,6 +19,7 @@ import Button from "../components/shared/Button";
 
 // Sub-components
 import OperationsView from "../components/Workbenches/OperationsView";
+import InventoryView from "../components/Workbenches/InventoryView";
 import InvestorView from "../components/Workbenches/InvestorView";
 import LogsView from "../components/Workbenches/LogsView";
 import DocumentSidebar from "../components/Workbenches/detail/DocumentSidebar";
@@ -35,10 +37,10 @@ export default function WorkbenchDetail() {
   const [activeTab, setActiveTab] = useState("Operations"); // Operations, Investor View, Logs & Records
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [isEmpty, setIsEmpty] = useState(false);
   const [checkingEmpty, setCheckingEmpty] = useState(true);
   const [isCreateRecordModalOpen, setIsCreateRecordModalOpen] = useState(false);
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const hasInitializedTab = useRef(false);
 
   const fetchWorkbench = useCallback(async () => {
     if (authLoading) return;
@@ -49,8 +51,20 @@ export default function WorkbenchDetail() {
     }
 
     try {
+      // Only set loading true if it's the initial load for this ID
+      // Use functional state update to check current workbench without adding it to dependencies
+      setWorkbench(currentWorkbench => {
+        // This is a hack to check current state without adding dependency
+        // We only set loading if we don't have the workbench yet
+        const isInitialLoad = !currentWorkbench || currentWorkbench.id !== id;
+        if (isInitialLoad) {
+          setLoading(true);
+        }
+        return currentWorkbench;
+      });
+
       console.log("[DEBUG] WorkbenchDetail: Fetching workbench", id);
-      setLoading(true);
+      
       const { data, error } = await supabase
         .from("workbenches")
         .select("*")
@@ -76,14 +90,17 @@ export default function WorkbenchDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id, navigate, user, authLoading]);
+  }, [id, navigate, user, authLoading]); // Only depend on user.id
 
   const checkWorkbenchData = useCallback(async () => {
     if (!user) return;
     try {
-      setCheckingEmpty(true);
+      // Don't show loading spinner for background checks
+      // setCheckingEmpty(true); 
+      
+      // Check transactions table instead of workbench_records
       const { count, error } = await supabase
-        .from("workbench_records")
+        .from("transactions")
         .select("id", { count: 'exact', head: true })
         .eq("workbench_id", id);
 
@@ -91,7 +108,16 @@ export default function WorkbenchDetail() {
         throw error;
       }
 
-      setIsEmpty(count === 0);
+      if (!hasInitializedTab.current && count === 0) {
+        setActiveTab("Welcome");
+        hasInitializedTab.current = true;
+      }
+      
+      // If we found data, make sure we mark initialized
+      if (count > 0) {
+        hasInitializedTab.current = true;
+      }
+      
     } catch (err) {
       console.error("Error checking workbench empty state:", err);
     } finally {
@@ -133,7 +159,7 @@ export default function WorkbenchDetail() {
     );
   }
 
-  const tabs = ["Operations", "Investor View", "Logs & Records"];
+  const tabs = ["Operations", "Inventory", "Investor View", "Logs & Records"];
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#0a0a0a]">
@@ -205,6 +231,7 @@ export default function WorkbenchDetail() {
             >
               <div className="flex items-center space-x-2">
                 {tab === "Operations" && <BsBuilding className="text-base" />}
+                {tab === "Inventory" && <BsBox className="text-base" />}
                 {tab === "Investor View" && <BsArrowUpRight className="text-base" />}
                 {tab === "Logs & Records" && <BsClockHistory className="text-base" />}
                 <span>{tab}</span>
@@ -225,13 +252,13 @@ export default function WorkbenchDetail() {
           </div>
         ) : (
           <>
-            {activeTab === "Operations" && (
-              isEmpty ? (
-                <WorkbenchWelcome onAction={handleWelcomeAction} workbenchId={id} />
-              ) : (
-                <OperationsView workbenchId={id} />
-              )
+            {activeTab === "Welcome" && (
+              <WorkbenchWelcome onAction={handleWelcomeAction} workbenchId={id} />
             )}
+            {activeTab === "Operations" && (
+              <OperationsView workbenchId={id} />
+            )}
+            {activeTab === "Inventory" && <InventoryView workbenchId={id} />}
             {activeTab === "Investor View" && <InvestorView workbenchId={id} />}
             {activeTab === "Logs & Records" && <LogsView workbenchId={id} />}
           </>
@@ -252,7 +279,10 @@ export default function WorkbenchDetail() {
       {/* Right Sidebar - Documents */}
       <DocumentSidebar
         isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
+        onClose={() => {
+          setIsSidebarOpen(false);
+          checkWorkbenchData();
+        }}
         workbenchId={id}
       />
 

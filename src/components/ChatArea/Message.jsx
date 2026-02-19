@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useTheme } from "../../context/ThemeContext";
 import { format } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -7,35 +6,150 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeRaw from "rehype-raw";
 import "highlight.js/styles/github-dark.css";
 import ThinkingIndicator from "./ThinkingIndicator";
+import AnalysisModal from "./AnalysisModal";
+import { BsLightbulb } from "react-icons/bs";
 
-const Message = ({ message }) => {
-    const { darkMode } = useTheme();
+// Helper to highlight text recursively
+const highlightText = (content, query) => {
+    if (!query || !content) return content;
+
+    if (Array.isArray(content)) {
+        return content.map((child, i) => (
+            <React.Fragment key={i}>{highlightText(child, query)}</React.Fragment>
+        ));
+    }
+
+    if (React.isValidElement(content)) {
+        if (content.props.children) {
+            return React.cloneElement(content, {
+                children: highlightText(content.props.children, query)
+            });
+        }
+        return content;
+    }
+
+    if (typeof content === 'string') {
+        const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const parts = content.split(new RegExp(`(${escapedQuery})`, 'gi'));
+
+        if (parts.length === 1) return content;
+
+        return parts.map((part, i) =>
+            part.toLowerCase() === query.toLowerCase() ? (
+                <mark key={i} className="bg-teal-500/30 text-teal-200 border-b border-teal-500/50 px-0.5 rounded-sm animate-pulse no-underline mx-0.5 font-bold">
+                    {part}
+                </mark>
+            ) : (
+                part
+            )
+        );
+    }
+
+    return content;
+};
+
+const Message = ({ message, searchQuery = "" }) => {
+    const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
 
     const formattedTime = format(new Date(message.timestamp), "h:mm a");
     const isUser = message.role === "user";
     const isAI = message.role === "assistant";
 
-    // Parse Content for Chips
+    // Parse Content for Chips and Analysis Data
     const parseContent = (content) => {
-        if (!content) return { text: "", chips: [] };
+        if (!content) return { text: "", chips: [], analysisData: null };
 
         let text = content;
         const chips = [];
+        let analysisData = null;
 
-        // 1. Extract Chips
-        const chipRegex = /\[SUGGESTION: (.*?)\]/g;
+        // 1. Extract Bracketed Chips [SUGGESTION: ...]
+        const bracketRegex = /\[SUGGESTION: (.*?)\]/g;
         let match;
-        while ((match = chipRegex.exec(content)) !== null) {
-            chips.push(match[1].trim());
+        while ((match = bracketRegex.exec(text)) !== null) {
+            // Remove markdown bold/italic markers (* or _) and trim
+            const cleanSuggestion = match[1].replace(/[*_]/g, '').trim();
+            if (cleanSuggestion) {
+                chips.push(cleanSuggestion);
+            }
         }
-        text = text.replace(chipRegex, "").trim();
+        text = text.replace(bracketRegex, "");
 
-        return { text, chips };
+        // 2. Extract Unbracketed Chips SUGGESTION: ...
+        // Using replace with callback to handle extraction and removal simultaneously
+        // [\s\S]*? matches across newlines, ensuring we catch multi-line suggestions or those separated by newlines
+        // Also handles optional markdown bold/italic markers before "SUGGESTION:"
+        const plainRegex = /(?:\*\*|__|\*|_)?\s*SUGGESTION:(?:\*\*|__|\*|_)?([\s\S]*?)(?=(?:\*\*|__|\*|_)?\s*SUGGESTION:|$)/g;
+        
+        text = text.replace(plainRegex, (_, group1) => {
+            // Remove markdown bold/italic markers (* or _) and trim
+            const cleanSuggestion = group1.replace(/[*_]/g, '').trim();
+            if (cleanSuggestion) {
+                chips.push(cleanSuggestion);
+            }
+            return ""; // Remove the suggestion block from the text
+        }).trim();
+
+        // 3. Extract Analysis Details XML
+        const analysisRegex = /<AnalysisDetails>([\s\S]*?)<\/AnalysisDetails>/;
+        const analysisMatch = analysisRegex.exec(text);
+
+        if (analysisMatch) {
+            const xmlContent = analysisMatch[1];
+            
+            // Simple extraction using regex with case insensitivity
+            const extractTag = (tag, content) => {
+                const regex = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'i');
+                const match = regex.exec(content);
+                return match ? match[1].trim() : "";
+            };
+
+            const sourceContent = extractTag("Source", xmlContent);
+            const sourceFile = extractTag("File", sourceContent) || "General Knowledge";
+            const sourceLocation = extractTag("Location", sourceContent);
+            
+            const citationsContent = extractTag("Citations", xmlContent);
+            const citationRegex = /<Citation>([\s\S]*?)<\/Citation>/gi;
+            const citations = [];
+            let citationMatch;
+            while ((citationMatch = citationRegex.exec(citationsContent)) !== null) {
+                citations.push(citationMatch[1].trim());
+            }
+
+            const reasoningContent = extractTag("Reasoning", xmlContent);
+            // Split reasoning by numbers (1. , 2. ) or newlines if no numbers
+            let reasoningSteps = reasoningContent.split(/\d+\.\s+/).filter(s => s.trim());
+            if (reasoningSteps.length === 0 && reasoningContent) {
+                reasoningSteps = [reasoningContent];
+            }
+
+            const confidence = extractTag("Confidence", xmlContent);
+
+            analysisData = {
+                source: {
+                    file: sourceFile,
+                    location: sourceLocation
+                },
+                citations: citations,
+                reasoning: reasoningSteps,
+                confidence: confidence || "0.0"
+            };
+
+            // Guardrail: If confidence is 0 or source is None, treat as no analysis
+            if (parseFloat(analysisData.confidence) === 0 || sourceFile.toLowerCase() === 'none' || sourceFile.toLowerCase() === 'n/a') {
+                analysisData = null;
+            }
+
+            // Remove the XML block from displayed text
+            text = text.replace(analysisRegex, "");
+        }
+
+        return { text, chips, analysisData };
     };
 
-    const { text: displayContent, chips } = isAI && !message.isLoading
+    const { text: displayContent, chips, analysisData } = isAI && !message.isLoading
         ? parseContent(message.content)
-        : { text: message.content, chips: [] };
+        : { text: message.content, chips: [], analysisData: null };
 
     return (
         <div
@@ -87,7 +201,7 @@ const Message = ({ message }) => {
                                     <div
                                         className="text-base leading-relaxed font-normal break-words font-sans"
                                     >
-                                        {message.content}
+                                        {highlightText(message.content, searchQuery)}
 
                                         {/* Workbench Context Display */}
                                         {message.options?.workbenchId && (
@@ -135,7 +249,7 @@ const Message = ({ message }) => {
                                         {/* Attached Files Display */}
                                         {(message.metadata?.files || message.options?.uploadedFiles) && (message.metadata?.files?.length > 0 || message.options?.uploadedFiles?.length > 0) && (
                                             <div className="mt-4 flex flex-wrap gap-2 pt-3 border-t border-white/10">
-                                                {(message.metadata?.files || message.options?.uploadedFiles).map((file, idx) => (
+                                                {(message.metadata?.files || message.options?.uploadedFiles)?.map((file, idx) => (
                                                     <div
                                                         key={idx}
                                                         className="flex items-center gap-3 bg-black/40 backdrop-blur-md px-3 py-2 rounded-lg border border-white/10 text-sm hover:border-teal-500/30 transition-colors"
@@ -171,20 +285,31 @@ const Message = ({ message }) => {
                                             rehypePlugins={[rehypeHighlight, rehypeRaw]}
                                             components={{
                                                 // Custom Code Block Styling
-                                                code({ node, inline, className, children, ...props }) {
+                                                code({ inline, className, children, ...props }) {
+                                                    const highlightedChildren = highlightText(children, searchQuery);
                                                     return inline ? (
-                                                        <code className="bg-[#1C2128] text-teal-300 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>
+                                                        <code className="bg-[#1C2128] text-teal-300 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>{highlightedChildren}</code>
                                                     ) : (
-                                                        <code className={`${className} block bg-[#0D1117] p-4 rounded-lg overflow-x-auto text-sm leading-relaxed`} {...props}>{children}</code>
+                                                        <code className={`${className} block bg-[#0D1117] p-4 rounded-lg overflow-x-auto text-sm leading-relaxed`} {...props}>{highlightedChildren}</code>
                                                     );
                                                 },
                                                 // Table Styling
                                                 table: ({ children }) => <div className="overflow-x-auto my-4 rounded-xl border border-white/5"><table className="min-w-full text-left">{children}</table></div>,
                                                 thead: ({ children }) => <thead className="bg-[#1C2128] text-gray-200 border-b border-gray-700 font-bold">{children}</thead>,
-                                                th: ({ children }) => <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-teal-400/90">{children}</th>,
-                                                td: ({ children }) => <td className="px-4 py-3 border-b border-gray-800/50 text-sm opacity-90">{children}</td>,
-                                                a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer" className="text-teal-400 hover:text-teal-300 underline underline-offset-4 decoration-teal-500/30">{children}</a>,
-                                                blockquote: ({ children }) => <blockquote className="border-l-4 border-teal-500/50 pl-4 py-1.5 my-4 bg-teal-500/5 rounded-r text-gray-300 italic">{children}</blockquote>
+                                                th: ({ children }) => <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-teal-400/90">{highlightText(children, searchQuery)}</th>,
+                                                td: ({ children }) => <td className="px-4 py-3 border-b border-gray-800/50 text-sm opacity-90">{highlightText(children, searchQuery)}</td>,
+                                                a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer" className="text-teal-400 hover:text-teal-300 underline underline-offset-4 decoration-teal-500/30">{highlightText(children, searchQuery)}</a>,
+                                                blockquote: ({ children }) => <blockquote className="border-l-4 border-teal-500/50 pl-4 py-1.5 my-4 bg-teal-500/5 rounded-r text-gray-300 italic">{highlightText(children, searchQuery)}</blockquote>,
+                                                // General Text Styling with Highlight
+                                                p: ({ children }) => <p className="mb-4 last:mb-0">{highlightText(children, searchQuery)}</p>,
+                                                li: ({ children }) => <li className="mb-1">{highlightText(children, searchQuery)}</li>,
+                                                ul: ({ children }) => <ul className="list-disc pl-5 mb-4 space-y-1">{children}</ul>,
+                                                ol: ({ children }) => <ol className="list-decimal pl-5 mb-4 space-y-1">{children}</ol>,
+                                                h1: ({ children }) => <h1 className="text-2xl font-bold mb-4 mt-6 border-b border-white/10 pb-2">{highlightText(children, searchQuery)}</h1>,
+                                                h2: ({ children }) => <h2 className="text-xl font-bold mb-3 mt-5">{highlightText(children, searchQuery)}</h2>,
+                                                h3: ({ children }) => <h3 className="text-lg font-bold mb-2 mt-4">{highlightText(children, searchQuery)}</h3>,
+                                                strong: ({ children }) => <strong className="font-bold text-white">{highlightText(children, searchQuery)}</strong>,
+                                                em: ({ children }) => <em className="italic text-gray-300">{highlightText(children, searchQuery)}</em>
                                             }}
                                         >
                                             {displayContent}
@@ -211,6 +336,22 @@ const Message = ({ message }) => {
                                             ))}
                                         </div>
                                     )}
+
+                                    {/* Analysis Logic Button */}
+                                    {analysisData && (
+                                        <div className="mt-4 flex justify-end">
+                                            <button 
+                                                onClick={() => setIsAnalysisOpen(true)}
+                                                className="text-xs flex items-center gap-1.5 text-gray-500 hover:text-teal-400 transition-colors bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg border border-white/5 hover:border-teal-500/20"
+                                            >
+                                                <BsLightbulb size={12} />
+                                                <span>how did we reach till this ?</span>
+                                                <span className={`ml-1 text-[10px] font-mono px-1 rounded ${parseFloat(analysisData.confidence) > 0.7 ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                                    {Math.round(parseFloat(analysisData.confidence) * 100)}%
+                                                </span>
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -218,7 +359,12 @@ const Message = ({ message }) => {
                 </div>
             </div>
 
-
+            {/* Analysis Modal */}
+            <AnalysisModal 
+                isOpen={isAnalysisOpen} 
+                onClose={() => setIsAnalysisOpen(false)} 
+                analysisData={analysisData} 
+            />
         </div>
     );
 };

@@ -5,8 +5,7 @@ export default function ChatSearch({
   isOpen,
   onClose,
   chatHistory = [],
-  onSelectChat,
-  onSearchMessages
+  onSelectChat
 }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -37,7 +36,8 @@ export default function ChatSearch({
 
       // Search in chat history
       const queryLower = query.toLowerCase();
-      const filtered = chatHistory
+      const history = Array.isArray(chatHistory) ? chatHistory : [];
+      const filtered = history
         .filter(chat =>
           chat.title?.toLowerCase().includes(queryLower) ||
           chat.messages?.some(msg =>

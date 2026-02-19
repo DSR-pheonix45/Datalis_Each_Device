@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   BsSearch, 
   BsFilter, 
@@ -15,12 +15,15 @@ import {
   BsClockHistory,
   BsHammer,
   BsBuilding,
-  BsInfoCircle
+  BsInfoCircle,
+  BsCheckCircle,
+  BsRobot
 } from "react-icons/bs";
 import Card from "../shared/Card";
 import { supabase } from "../../lib/supabase";
-import { useAuth } from "../../hooks/useAuth";
 import AdjustmentModal from "./AdjustmentModal";
+import ConfirmRecordModal from "./ConfirmRecordModal";
+import { intelligenceService } from "../../services/intelligenceService";
 
 const TYPE_CONFIG = {
   transaction: {
@@ -77,16 +80,17 @@ const TABS = [
 ];
 
 export default function LogsView({ workbenchId }) {
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedRecordId, setExpandedRecordId] = useState(null);
+  const [metrics, setMetrics] = useState({ successRate: 0, aiAccuracy: 0 });
   
   // Adjustment State
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
   useEffect(() => {
     if (workbenchId) {
@@ -100,26 +104,33 @@ export default function LogsView({ workbenchId }) {
 
     window.addEventListener('refresh-workbench-data', handleUpdate);
     return () => window.removeEventListener('refresh-workbench-data', handleUpdate);
-  }, [workbenchId]);
+  }, [workbenchId, fetchRecords]);
 
-  const fetchRecords = async () => {
+  const fetchRecords = useCallback(async () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from("workbench_records")
-        .select("*")
-        .eq("workbench_id", workbenchId)
-        .order("created_at", { ascending: false });
+      const [recordsResult, metricsResult] = await Promise.all([
+        supabase
+          .from("workbench_records")
+          .select("*")
+          .eq("workbench_id", workbenchId)
+          .order("created_at", { ascending: false }),
+        intelligenceService.getLogMetrics(workbenchId)
+      ]);
 
-      if (error) throw error;
-      setRecords(data || []);
+      if (recordsResult.error) throw recordsResult.error;
+      setRecords(recordsResult.data || []);
+      
+      if (metricsResult) {
+        setMetrics(metricsResult);
+      }
     } catch (err) {
       console.error("Error fetching records:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [workbenchId]);
 
   const filteredRecords = records.filter(record => {
     const matchesTab = activeTab === "all" || record.record_type === activeTab;
@@ -150,6 +161,35 @@ export default function LogsView({ workbenchId }) {
           <h2 className="text-2xl font-bold text-white mb-2">Logs & Records</h2>
           <p className="text-gray-500 text-sm">Every action is a record — unified audit trail</p>
         </div>
+      </div>
+
+      {/* Metrics Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card variant="dark" className="border-white/5 p-6 flex items-center justify-between group hover:border-white/10 transition-all">
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Doc Processing Success</div>
+            <div className="text-2xl font-bold text-white">{metrics.successRate.toFixed(1)}%</div>
+            <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden mt-2 max-w-[150px]">
+              <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${metrics.successRate}%` }} />
+            </div>
+          </div>
+          <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400">
+            <BsCheckCircle className="text-xl" />
+          </div>
+        </Card>
+
+        <Card variant="dark" className="border-white/5 p-6 flex items-center justify-between group hover:border-white/10 transition-all">
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">AI Classification Accuracy</div>
+            <div className="text-2xl font-bold text-white">{metrics.aiAccuracy.toFixed(1)}%</div>
+            <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden mt-2 max-w-[150px]">
+              <div className="bg-purple-500 h-full rounded-full" style={{ width: `${metrics.aiAccuracy}%` }} />
+            </div>
+          </div>
+          <div className="p-3 bg-purple-500/10 rounded-xl text-purple-400">
+            <BsRobot className="text-xl" />
+          </div>
+        </Card>
       </div>
 
       {/* Filters & Search */}
@@ -249,6 +289,19 @@ export default function LogsView({ workbenchId }) {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
+                      {record.status === 'draft' && record.record_type === 'transaction' && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedRecord(record);
+                            setIsConfirmModalOpen(true);
+                          }}
+                          className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-black transition-all text-[10px] font-black uppercase tracking-widest border border-emerald-500/20"
+                        >
+                          <BsCheckCircle className="text-xs" />
+                          <span>Confirm</span>
+                        </button>
+                      )}
                       {(record.record_type === 'transaction' || record.record_type === 'compliance' || record.record_type === 'party') && (
                         <button 
                           onClick={(e) => {
@@ -389,10 +442,20 @@ export default function LogsView({ workbenchId }) {
         )}
       </div>
 
-      <AdjustmentModal
+      <AdjustmentModal 
         isOpen={isAdjustmentModalOpen}
         onClose={() => {
           setIsAdjustmentModalOpen(false);
+          setSelectedRecord(null);
+        }}
+        record={selectedRecord}
+        workbenchId={workbenchId}
+        onSuccess={fetchRecords}
+      />
+      <ConfirmRecordModal 
+        isOpen={isConfirmModalOpen}
+        onClose={() => {
+          setIsConfirmModalOpen(false);
           setSelectedRecord(null);
         }}
         record={selectedRecord}

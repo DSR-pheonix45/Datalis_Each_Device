@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { BsX, BsPersonPlus, BsTrash, BsPeople, BsEnvelope, BsLink45Deg, BsCheck, BsBuilding } from "react-icons/bs";
 import { toast } from "react-hot-toast";
@@ -14,15 +14,8 @@ export default function CompanyModal({ isOpen, onClose, workbenchId }) {
     const [generatingInvite, setGeneratingInvite] = useState(false);
     const [copiedToken, setCopiedToken] = useState(null);
 
-    useEffect(() => {
-        if (isOpen && workbenchId) {
-            fetchMembers();
-            fetchInvites();
-        }
-    }, [isOpen, workbenchId]);
-
-    const fetchMembers = async () => {
-        try {
+    const fetchMembers = useCallback(async () => {
+    try {
             setLoading(true);
             // 1. Get Workbench Members
             const { data: memberData, error: memberError } = await supabase
@@ -57,15 +50,15 @@ export default function CompanyModal({ isOpen, onClose, workbenchId }) {
                 setMembers([]);
             }
         } catch (err) {
-            console.error("Error fetching members:", err);
-            toast.error("Failed to load team members");
-        } finally {
-            setLoading(false);
-        }
-    };
+        console.error("Error fetching members:", err);
+        toast.error("Failed to load team members");
+    } finally {
+        setLoading(false);
+    }
+  }, [workbenchId]);
 
-    const fetchInvites = async () => {
-        try {
+  const fetchInvites = useCallback(async () => {
+    try {
             const { data, error } = await supabase
                 .from('workbench_invites')
                 .select('*')
@@ -77,7 +70,14 @@ export default function CompanyModal({ isOpen, onClose, workbenchId }) {
         } catch (err) {
             console.error("Error fetching invites:", err);
         }
-    };
+    }, [workbenchId]);
+
+    useEffect(() => {
+        if (isOpen && workbenchId) {
+        fetchMembers();
+        fetchInvites();
+    }
+  }, [isOpen, workbenchId, fetchMembers, fetchInvites]);
 
     const handleCreateInvite = async (e) => {
         e.preventDefault();
@@ -130,7 +130,7 @@ export default function CompanyModal({ isOpen, onClose, workbenchId }) {
             if (error) throw error;
             toast.success("Invite revoked");
             fetchInvites();
-        } catch (err) {
+        } catch {
             toast.error("Failed to revoke invite");
         }
     };

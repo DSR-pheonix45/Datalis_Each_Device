@@ -1,157 +1,154 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { 
   BsX, 
   BsUpload, 
-  BsFileEarmarkPdf, 
   BsFileEarmarkText,
+  BsTag,
   BsDot,
   BsArrowRepeat,
-  BsTrash,
-  BsTag,
-  BsCheck2All,
-  BsHourglassSplit,
-  BsChevronRight
+  BsCheckCircle,
+  BsExclamationCircle
 } from "react-icons/bs";
-import { backendService } from "../../../services/backendService";
-import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../hooks/useAuth";
+import { supabase } from "../../../lib/supabase";
 import Card from "../../shared/Card";
-import { toast } from "react-hot-toast";
 
 const DOCUMENT_TYPES = [
-  { id: 'bank_statement', label: 'Bank Statement', color: 'bg-blue-500/10 text-blue-400' },
-  { id: 'invoice', label: 'Invoice', color: 'bg-emerald-500/10 text-emerald-400' },
-  { id: 'bill', label: 'Bill/Expense', color: 'bg-red-500/10 text-red-400' },
-  { id: 'ledger', label: 'Ledger', color: 'bg-purple-500/10 text-purple-400' },
-  { id: 'compliance', label: 'Compliance', color: 'bg-orange-500/10 text-orange-400' },
-  { id: 'contract', label: 'Contract', color: 'bg-rose-500/10 text-rose-400' },
-  { id: 'other', label: 'Other', color: 'bg-gray-500/10 text-gray-400' },
+  { id: 'all', label: 'All Documents', color: 'bg-gray-500/10 text-gray-400' },
+  { id: 'Bank Statement', label: 'Bank Statement', color: 'bg-blue-500/10 text-blue-400' },
+  { id: 'Invoice', label: 'Invoice', color: 'bg-emerald-500/10 text-emerald-400' },
+  { id: 'Bill', label: 'Bill/Expense', color: 'bg-red-500/10 text-red-400' },
+  { id: 'Ledger', label: 'Ledger', color: 'bg-purple-500/10 text-purple-400' },
+  { id: 'Compliance', label: 'Compliance', color: 'bg-orange-500/10 text-orange-400' },
 ];
 
-const STATUS_CONFIG = {
-  uploaded: { label: 'Uploaded', icon: BsUpload, color: 'text-blue-400' },
-  UPLOADED: { label: 'Uploaded', icon: BsUpload, color: 'text-blue-400' },
-  parsing: { label: 'Parsing', icon: BsHourglassSplit, color: 'text-amber-400', animate: true },
-  PARSING: { label: 'Parsing', icon: BsHourglassSplit, color: 'text-amber-400', animate: true },
-  parsed: { label: 'Processed', icon: BsCheck2All, color: 'text-emerald-400' },
-  processed: { label: 'Processed', icon: BsCheck2All, color: 'text-emerald-400' },
-  failed: { label: 'Failed', icon: BsX, color: 'text-rose-400' },
-  FAILED: { label: 'Failed', icon: BsX, color: 'text-rose-400' },
+const getDisplayName = (doc) => {
+  if (!doc.file_path) return doc.id;
+  const parts = doc.file_path.split('/');
+  const fileName = parts[parts.length - 1];
+  const match = fileName.match(/^\d{13}-(.*)$/);
+  return match ? match[1] : fileName;
 };
 
 export default function DocumentSidebar({ isOpen, onClose, workbenchId }) {
   const { user } = useAuth();
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [selectedType, setSelectedType] = useState('invoice');
+  const [selectedType, setSelectedType] = useState('all');
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const fileInputRef = useRef(null);
+  
+  const [uploading, setUploading] = useState(false);
+  const [documents, setDocuments] = useState([]); // In a real app, fetch this from DB
+  const [uploadStatus, setUploadStatus] = useState(null); // 'success' | 'error'
+  const [loadingDocs, setLoadingDocs] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && workbenchId) {
-      fetchDocuments();
-    }
-  }, [isOpen, workbenchId]);
-
-  // Status Polling
-  useEffect(() => {
-    let interval;
-    const needsPolling = documents.some(doc => 
-      ['uploaded', 'parsing', 'UPLOADED', 'PARSING'].includes(doc.processing_status)
-    );
-
-    if (isOpen && needsPolling) {
-      interval = setInterval(() => {
-        fetchDocuments(true); // silent fetch
-      }, 3000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isOpen, documents]);
-
-  const fetchDocuments = async (silent = false) => {
+  const fetchDocuments = useCallback(async () => {
     try {
-      if (!silent) setLoading(true);
-
+      setLoadingDocs(true);
       const { data, error } = await supabase
-        .from("workbench_documents")
-        .select("*")
-        .eq("workbench_id", workbenchId)
-        .order("created_at", { ascending: false });
+        .from('workbench_documents')
+        .select('*')
+        .eq('workbench_id', workbenchId)
+        .order('uploaded_at', { ascending: false });
 
       if (error) throw error;
       setDocuments(data || []);
-    } catch (err) {
-      console.error("Error fetching documents:", err);
-      if (!silent) toast.error("Failed to load documents");
+    } catch (error) {
+      console.error("Error fetching documents:", error);
     } finally {
-      if (!silent) setLoading(false);
+      setLoadingDocs(false);
     }
-  };
+  }, [workbenchId]);
+
+  // Fetch documents from workbench_documents
+  React.useEffect(() => {
+    if (isOpen && workbenchId) {
+      fetchDocuments();
+    }
+  }, [isOpen, workbenchId, fetchDocuments]);
+
+  // Poll for updates every 5 seconds if sidebar is open
+  React.useEffect(() => {
+    let interval;
+    if (isOpen && workbenchId) {
+      interval = setInterval(fetchDocuments, 5000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isOpen, workbenchId, fetchDocuments]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
 
   const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files[0];
     if (!file) return;
 
+    setUploading(true);
+    setUploadStatus(null);
+
     try {
-      setUploading(true);
+      // 1. Upload file to Storage
+      // Use timestamp-filename format to preserve original name while ensuring uniqueness
+      const fileName = `${Date.now()}-${file.name}`;
+      // IMPORTANT: Remove workbenchId prefix because RLS policy expects (storage.foldername(name))[1] to be workbench_id
+      // So the path should be `${workbenchId}/${fileName}`
+      // Let's verify if the bucket structure is strictly `workbenchId/filename`
+      const filePath = `${workbenchId}/${fileName}`;
 
-      const docData = await backendService.uploadDocument(
-        workbenchId,
-        file,
-        selectedType
-      );
+      console.log(`Uploading to bucket 'workbench_documents' at path '${filePath}'`);
 
-      setDocuments([docData, ...documents]);
-      toast.success("Document uploaded and processing started");
-    } catch (err) {
-      console.error("Upload error:", err);
-      toast.error(err.message || "Failed to upload document");
+      const { error: uploadError } = await supabase.storage
+        .from('workbench_documents')
+        .upload(filePath, file);
+
+      if (uploadError) {
+          console.error("Upload failed details:", uploadError);
+          throw uploadError;
+      }
+
+      // 2. Create Document Record
+      const { data: doc, error: dbError } = await supabase
+        .from('workbench_documents')
+        .insert({
+          workbench_id: workbenchId,
+          file_path: filePath,
+          document_type: selectedType !== 'all' ? selectedType : 'other',
+          processing_status: 'UPLOADED'
+          // Note: uploaded_by removed as it doesn't exist in schema
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      // 3. Trigger Processing
+      const { error: processError } = await supabase.functions.invoke('process-document', {
+        body: { document_id: doc.id, user_id: user.id }
+      });
+
+      if (processError) {
+        console.warn("Processing trigger failed:", processError);
+        // Don't fail the upload, just warn
+      }
+
+      setDocuments(prev => [doc, ...prev]);
+      setUploadStatus('success');
+      
+      // Reset after delay
+      setTimeout(() => setUploadStatus(null), 3000);
+
+    } catch (error) {
+      console.error("Upload failed:", error);
+      setUploadStatus('error');
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const handleOpenFile = async (doc) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from("workbench-documents")
-        .createSignedUrl(doc.file_path, 3600); // 1 hour expiry
-
-      if (error) throw error;
-
-      if (data?.signedUrl) {
-        window.open(data.signedUrl, '_blank');
-      }
-    } catch (err) {
-      console.error("Error opening file:", err);
-      toast.error("Failed to open document");
-    }
-  };
-
-  const formatSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
+  const filteredDocuments = documents;
 
   return (
     <>
@@ -175,16 +172,10 @@ export default function DocumentSidebar({ isOpen, onClose, workbenchId }) {
             <div>
               <h2 className="text-2xl font-bold text-white mb-0.5">Documents</h2>
               <p className="text-gray-500 text-xs font-medium">
-                {loading ? "Loading..." : `${documents.length} ${documents.length === 1 ? 'file' : 'files'}`}
+                {filteredDocuments.length} files
               </p>
             </div>
             <div className="flex items-center space-x-4">
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                className="hidden" 
-              />
               
               <div className="relative">
                 <button 
@@ -219,15 +210,31 @@ export default function DocumentSidebar({ isOpen, onClose, workbenchId }) {
               <button 
                 onClick={handleUploadClick}
                 disabled={uploading}
-                className="flex items-center space-x-2 px-5 py-2 rounded-full bg-primary text-black hover:opacity-90 transition-all text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`flex items-center space-x-2 px-4 py-2 rounded-full font-bold text-xs transition-all ${
+                  uploading 
+                    ? "bg-gray-800 text-gray-500 cursor-wait"
+                    : "bg-primary text-black hover:bg-primary-hover shadow-[0_0_15px_rgba(129,230,217,0.3)] hover:shadow-[0_0_25px_rgba(129,230,217,0.5)]"
+                }`}
               >
                 {uploading ? (
-                  <BsArrowRepeat className="animate-spin" />
+                  <>
+                    <BsArrowRepeat className="text-sm animate-spin" />
+                    <span>Uploading...</span>
+                  </>
                 ) : (
-                  <BsUpload className="text-base stroke-1" />
+                  <>
+                    <BsUpload className="text-sm" />
+                    <span>Upload</span>
+                  </>
                 )}
-                <span>{uploading ? "Uploading..." : "Upload"}</span>
               </button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                onChange={handleFileChange}
+                accept=".pdf,.png,.jpg,.jpeg,.csv" 
+              />
               
               <button 
                 onClick={onClose}
@@ -238,79 +245,83 @@ export default function DocumentSidebar({ isOpen, onClose, workbenchId }) {
             </div>
           </div>
 
-          {/* Document List */}
+          {/* Status Message */}
+          {uploadStatus === 'success' && (
+            <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center space-x-2 text-emerald-400 text-sm">
+              <BsCheckCircle />
+              <span>Document uploaded and processing started successfully.</span>
+            </div>
+          )}
+          {uploadStatus === 'error' && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center space-x-2 text-red-400 text-sm">
+              <BsExclamationCircle />
+              <span>Failed to upload document. Please try again.</span>
+            </div>
+          )}
+
+          {/* Content */}
           <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center h-64 space-y-4">
-                <BsArrowRepeat className="text-3xl text-primary animate-spin" />
-                <p className="text-gray-500 text-sm">Loading documents...</p>
+            {loadingDocs ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center">
+                 <BsArrowRepeat className="text-3xl text-primary animate-spin mb-4" />
+                 <p className="text-gray-400 text-sm">Loading documents...</p>
               </div>
-            ) : documents.length === 0 ? (
+            ) : filteredDocuments.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <div className="p-4 rounded-full bg-white/5 mb-4">
                   <BsFileEarmarkText className="text-3xl text-gray-700" />
                 </div>
-                <h3 className="text-white font-bold mb-1">No documents yet</h3>
+                <h3 className="text-white font-bold mb-1">
+                  No Documents
+                </h3>
                 <p className="text-gray-500 text-sm max-w-[200px]">
-                  Upload your first financial document to get started.
+                  Upload documents to automatically extract data and create records.
                 </p>
               </div>
             ) : (
-              documents.map((doc) => {
-                const status = STATUS_CONFIG[doc.processing_status] || STATUS_CONFIG.uploaded;
-                const StatusIcon = status.icon;
-                const docType = DOCUMENT_TYPES.find(t => t.id === doc.document_type) || DOCUMENT_TYPES[5];
+              <div className="space-y-3">
+                {filteredDocuments.map((doc, idx) => {
+                  const displayName = getDisplayName(doc);
+                  const displayStatus = doc.processing_status || 'UNKNOWN';
+                  // Calculate size if available, otherwise just show date
+                  const date = new Date(doc.uploaded_at || doc.created_at).toLocaleDateString();
 
-                return (
-                  <Card key={doc.id} className="group relative p-0 border-white/5 hover:border-primary/20 transition-all duration-300">
-                    <div className="p-4">
-                      <div className="flex items-center space-x-4 mb-4">
-                        <div className={`p-3 rounded-xl ${docType.color.split(' ')[0]} bg-opacity-10 group-hover:scale-110 transition-transform duration-300`}>
-                          {doc.file_name.endsWith('.pdf') ? (
-                            <BsFileEarmarkPdf className={`text-xl ${docType.color.split(' ')[1]}`} />
-                          ) : (
-                            <BsFileEarmarkText className={`text-xl ${docType.color.split(' ')[1]}`} />
-                          )}
+                  return (
+                  <Card key={doc.id || idx} className="p-4 hover:border-primary/30 transition-colors group">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-3 w-full">
+                        <div className={`p-2 rounded-lg ${
+                          displayStatus === 'processed' || displayStatus === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400' :
+                          displayStatus === 'processing' || displayStatus === 'PROCESSING' ? 'bg-blue-500/10 text-blue-400' :
+                          'bg-gray-500/10 text-gray-400'
+                        }`}>
+                          <BsFileEarmarkText className="text-lg" />
                         </div>
-                        
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="text-sm font-bold text-white truncate pr-4 group-hover:text-primary transition-colors">
-                              {doc.file_name}
+                          <div className="flex justify-between items-center w-full">
+                            <h4 className="text-sm font-medium text-white truncate max-w-[180px]" title={displayName}>
+                              {displayName}
                             </h4>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${docType.color}`}>
-                              {docType.label}
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ml-2 uppercase font-bold tracking-wider ${
+                              displayStatus === 'COMPLETED' || displayStatus === 'processed' ? 'bg-emerald-500/10 text-emerald-400' :
+                              displayStatus === 'PROCESSING' || displayStatus === 'processing' ? 'bg-blue-500/10 text-blue-400' :
+                              'bg-gray-500/10 text-gray-400'
+                            }`}>
+                              {displayStatus}
                             </span>
                           </div>
-                          
-                          <div className="flex items-center text-[11px] text-gray-500 font-medium space-x-2">
-                            <span>{formatDate(doc.created_at)}</span>
-                            <BsDot className="text-lg" />
-                            <span>{formatSize(doc.file_size)}</span>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className="text-xs text-gray-500 capitalize">{doc.document_type || 'Document'}</span>
+                            <span className="text-gray-600">•</span>
+                            <span className="text-xs text-gray-500">{date}</span>
                           </div>
                         </div>
-                      </div>
-
-                      <div className="flex items-center justify-between border-t border-white/5 pt-3">
-                        <div className={`flex items-center space-x-2 ${status.color}`}>
-                          <StatusIcon className={`text-sm ${status.animate ? 'animate-spin' : ''}`} />
-                          <span className="text-[10px] font-bold uppercase tracking-widest">{status.label}</span>
-                        </div>
-                        
-                        {doc.processing_status === 'parsed' && (
-                          <button 
-                            onClick={() => handleOpenFile(doc)}
-                            className="flex items-center space-x-1 text-primary hover:text-white transition-colors text-[10px] font-bold"
-                          >
-                            <span>OPEN FILE</span>
-                            <BsChevronRight className="text-[8px]" />
-                          </button>
-                        )}
                       </div>
                     </div>
                   </Card>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>

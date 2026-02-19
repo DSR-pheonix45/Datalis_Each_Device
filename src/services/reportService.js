@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { intelligenceService } from "./intelligenceService";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -81,13 +82,15 @@ export const reportService = {
             .order('metadata->>transaction_date', { ascending: false });
 
         if (error) throw error;
-        const { data: pos } = await supabase.from('view_cash_position').select('*').eq('workbench_id', workbenchId).maybeSingle();
-        return { transactions: data || [], summary: pos || { balance: 0, inflow: 0, outflow: 0 } };
+        // Replaced view_cash_position with intelligenceService calculation
+        const snapshot = await intelligenceService.getFinancialSnapshotMetrics(workbenchId);
+        const pos = { balance: snapshot?.cashBalance || 0, inflow: 0, outflow: 0 }; // simplified for now
+        return { transactions: data || [], summary: pos };
     },
 
     async fetchBudgetData(workbenchId) {
-        const { data, error } = await supabase.from('view_budget_vs_actual').select('*').eq('workbench_id', workbenchId);
-        if (error) throw error;
+        // Replaced view_budget_vs_actual with intelligenceService calculation
+        const data = await intelligenceService.getBudgetVsActual(workbenchId);
         return data || [];
     },
 
@@ -98,13 +101,14 @@ export const reportService = {
     },
 
     async fetchAgingData(workbenchId) {
-        const { data: receivables } = await supabase.from('view_receivables').select('*').eq('workbench_id', workbenchId);
-        const { data: payables } = await supabase.from('view_payables').select('*').eq('workbench_id', workbenchId);
+        // Replaced view_receivables/view_payables with intelligenceService calculation
+        const { payables, receivables } = await intelligenceService.getPayablesAndReceivables(workbenchId);
         return { receivables: receivables || [], payables: payables || [] };
     },
 
     async fetchVendorData(workbenchId) {
-        const { data: expenses } = await supabase.from('view_expense_categorization').select('*').eq('workbench_id', workbenchId);
+        // Replaced view_expense_categorization with intelligenceService calculation
+        const expenses = await intelligenceService.getExpenseCategorization(workbenchId);
         return { expenses: expenses || [] };
     },
 
@@ -359,7 +363,6 @@ export const reportService = {
         let y = this.setupPage(doc, "Compliance Scorecard", workbenchName, timestamp, "", config);
         y = this.drawNotes(doc, config.notes, y);
 
-        const pending = data.filter(c => (c.status || c.metadata?.status) === 'pending').length;
         const overdue = data.filter(c => {
             const status = c.status || c.metadata?.status;
             const deadline = c.deadline || c.metadata?.deadline;

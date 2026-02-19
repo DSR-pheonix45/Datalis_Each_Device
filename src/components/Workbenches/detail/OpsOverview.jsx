@@ -1,69 +1,61 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   BsCashStack,
   BsArrowUpRight,
   BsArrowDownLeft,
   BsHeartPulse,
   BsExclamationCircle,
-  BsClockHistory
+  BsClockHistory,
+  BsGraphUp,
+  BsGraphDown,
+  BsActivity
 } from "react-icons/bs";
 import Card from "../../shared/Card";
-import { supabase } from "../../../lib/supabase";
+import { intelligenceService } from "../../../services/intelligenceService";
 
 export default function OpsOverview({ workbenchId }) {
-  const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState('monthly'); // Default to monthly
   const [metrics, setMetrics] = useState([
     {
-      label: "CASH POSITION",
+      label: "REVENUE",
       value: "₹0",
-      change: "Loading...",
+      change: "Today",
+      changeType: "neutral",
+      icon: BsGraphUp,
+      color: "emerald",
+      subValue: null
+    },
+    {
+      label: "EXPENSES",
+      value: "₹0",
+      change: "Today",
+      changeType: "neutral",
+      icon: BsGraphDown,
+      color: "red",
+      subValue: null
+    },
+    {
+      label: "NET CHANGE",
+      value: "₹0",
+      change: "Revenue - Expenses",
       changeType: "neutral",
       icon: BsCashStack,
       color: "amber",
-      subValue: "Net: ₹0"
+      subValue: null
     },
     {
-      label: "PAYABLES",
-      value: "₹0",
-      change: "No bills due",
+      label: "TRANSACTIONS",
+      value: "0",
+      change: "Transactions today",
       changeType: "neutral",
-      icon: BsArrowUpRight,
-      color: "red"
-    },
-    {
-      label: "RECEIVABLES",
-      value: "₹0",
-      change: "No overdue invoices",
-      changeType: "neutral",
-      icon: BsArrowDownLeft,
-      color: "emerald"
-    },
-    {
-      label: "HEALTH SCORE",
-      value: "--/100",
-      change: "Calculating...",
-      changeType: "neutral",
-      icon: BsHeartPulse,
-      color: "teal"
+      icon: BsActivity,
+      color: "teal",
+      subValue: null
     },
   ]);
 
   const [exceptions, setExceptions] = useState([]);
   const [expenses, setExpenses] = useState([]);
-
-  useEffect(() => {
-    if (workbenchId) {
-      fetchDashboardData();
-    }
-
-    const handleRefresh = () => {
-      console.log("Refreshing OpsOverview data...");
-      fetchDashboardData();
-    };
-
-    window.addEventListener('refresh-workbench-data', handleRefresh);
-    return () => window.removeEventListener('refresh-workbench-data', handleRefresh);
-  }, [workbenchId]);
 
   const formatAmount = (amount) => {
     if (amount === undefined || amount === null) return "₹0";
@@ -79,154 +71,79 @@ export default function OpsOverview({ workbenchId }) {
     }
   };
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
-      setLoading(true);
-
-      // --- DEBUG SECTION ---
-      // Fetch all transaction records for this workbench to see what's actually there
-      const { data: rawRecords, error: rawError } = await supabase
-        .from('workbench_records')
-        .select('*')
-        .eq('workbench_id', workbenchId);
-
-      console.log("RAW RECORDS DEBUG:", {
-        workbenchId,
-        count: rawRecords?.length,
-        records: rawRecords,
-        error: rawError
-      });
-      // ---------------------
-
-      // Fetch Cash Position
-      const { data: cashData, error: cashError } = await supabase
-        .from('view_cash_position')
-        .select('*')
-        .eq('workbench_id', workbenchId)
-        .maybeSingle();
-
-      if (cashError) console.error("Cash Error:", cashError);
-
-      // Fetch Draft Impact
-      const { data: draftData, error: draftError } = await supabase
-        .from('view_draft_impact')
-        .select('*')
-        .eq('workbench_id', workbenchId)
-        .maybeSingle();
-
-      if (draftError) console.error("Draft Error:", draftError);
-
-      console.log("Dashboard Data Fetch:", { workbenchId, cashData, draftData });
-
-      // Fetch Payables
-      const { data: payablesData } = await supabase
-        .from('view_payables')
-        .select('*')
-        .eq('workbench_id', workbenchId);
-
-      // Fetch Receivables
-      const { data: receivablesData } = await supabase
-        .from('view_receivables')
-        .select('*')
-        .eq('workbench_id', workbenchId);
-
-      // Fetch Exceptions
-      const { data: exceptionsData } = await supabase
-        .from('view_exception_flags')
-        .select('*')
-        .eq('workbench_id', workbenchId);
-
-      // Fetch Expenses
-      const { data: expensesData } = await supabase
-        .from('view_expense_categorization')
-        .select('*')
-        .eq('workbench_id', workbenchId);
-
-      // Update metrics
-      const newMetrics = [...metrics];
-
-      const confirmedBalance = cashData?.balance || 0;
-      const draftBalance = draftData?.draft_balance || 0;
-
-      console.log("METRICS CALCULATION:", {
-        confirmedBalance,
-        draftBalance,
-        cashData,
-        draftData
-      });
-
-      // Fallback: If views return 0, let's calculate from rawRecords just to be sure
-      let manualConfirmed = 0;
-      let manualDraft = 0;
-      let manualPayables = 0;
-      let manualReceivables = 0;
-
-      if (rawRecords) {
-        rawRecords.forEach(r => {
-          const amount = r.net_amount || 0;
-          const direction = r.metadata?.direction; // 'credit' = In, 'debit' = Out
-          const status = r.status;
-          const type = r.record_type;
-
-          if (type === 'transaction') {
-            if (status === 'confirmed') {
-              manualConfirmed += (direction === 'credit' ? amount : -amount);
-            } else {
-              manualDraft += (direction === 'credit' ? amount : -amount);
-            }
-
-            // Logic for Receivables/Payables based on direction
-            // User says: Credit = Invoice/Receivable, Debit = Bill/Payable
-            if (direction === 'credit') {
-              manualReceivables += amount;
-            } else if (direction === 'debit') {
-              manualPayables += amount;
-            }
-          } else if (type === 'bill') {
-            manualPayables += amount;
-          } else if (type === 'invoice') {
-            manualReceivables += amount;
-          } else if (type === 'adjustment') {
-            // Adjustments affect confirmed balance
-            const adjDir = r.metadata?.direction || 'credit';
-            manualConfirmed += (adjDir === 'credit' ? amount : -amount);
-          }
+      // Fetch Operations Metrics from Intelligence Service
+      const opsMetrics = await intelligenceService.getOperationsMetrics(workbenchId, timeRange);
+      
+      if (opsMetrics) {
+        setMetrics(prevMetrics => {
+          const newMetrics = prevMetrics.map(m => ({ ...m }));
+          
+          // Revenue
+          newMetrics[0].label = `${timeRange.toUpperCase()} REVENUE`;
+          newMetrics[0].value = formatAmount(opsMetrics.totalRevenue);
+          newMetrics[0].change = `${formatAmount(opsMetrics.dailyRevenue)} Today`;
+          newMetrics[0].changeType = opsMetrics.dailyRevenue > 0 ? "positive" : "neutral";
+          
+          // Expenses
+          newMetrics[1].label = `${timeRange.toUpperCase()} EXPENSES`;
+          newMetrics[1].value = formatAmount(opsMetrics.totalExpenses);
+          newMetrics[1].change = `${formatAmount(opsMetrics.dailyExpenses)} Today`;
+          newMetrics[1].changeType = opsMetrics.dailyExpenses > 0 ? "danger" : "neutral";
+          
+          // Net Change
+          newMetrics[2].label = `${timeRange.toUpperCase()} NET CHANGE`;
+          newMetrics[2].value = formatAmount(opsMetrics.netTotalChange);
+          newMetrics[2].change = `${formatAmount(opsMetrics.netDailyChange)} Today`;
+          newMetrics[2].changeType = opsMetrics.netDailyChange >= 0 ? "positive" : "danger";
+          
+          // Transactions
+          newMetrics[3].label = `${timeRange.toUpperCase()} TRANSACTIONS`;
+          newMetrics[3].value = (opsMetrics.totalTransactions || 0).toString();
+          newMetrics[3].change = `${opsMetrics.transactionVelocity} Today`;
+          newMetrics[3].changeType = opsMetrics.transactionVelocity > 10 ? "positive" : "neutral";
+          
+          return newMetrics;
         });
       }
 
-      const finalConfirmed = confirmedBalance || manualConfirmed;
-      const finalDraft = draftBalance || manualDraft;
-      const totalBalance = finalConfirmed + finalDraft;
+      // Fetch Exceptions
+      const exceptionsData = await intelligenceService.getWorkbenchExceptions(workbenchId);
 
-      newMetrics[0].value = formatAmount(finalConfirmed);
-      newMetrics[0].subValue = finalDraft !== 0 ? `Proj: ${formatAmount(totalBalance)}` : `Net: ${formatAmount(finalConfirmed)}`;
-      newMetrics[0].change = finalDraft !== 0 ? "Includes draft txns" : "Updated just now";
-      newMetrics[0].changeType = finalDraft !== 0 ? "warning" : "neutral";
+      // Fetch Expenses
+      const expensesData = await intelligenceService.getExpenseCategorization(workbenchId);
 
-      const totalPayables = (payablesData?.reduce((sum, p) => sum + (p.total_amount || 0), 0) || 0) || manualPayables;
-      newMetrics[1].value = formatAmount(totalPayables);
-      newMetrics[1].change = `${payablesData?.length || rawRecords?.filter(r => r.record_type === 'bill' || (r.record_type === 'transaction' && r.metadata?.direction === 'debit' && r.status === 'draft')).length || 0} items due`;
-
-      const totalReceivables = (receivablesData?.reduce((sum, r) => sum + (r.total_amount || 0), 0) || 0) || manualReceivables;
-      newMetrics[2].value = formatAmount(totalReceivables);
-      newMetrics[2].change = `${receivablesData?.length || rawRecords?.filter(r => r.record_type === 'invoice' || (r.record_type === 'transaction' && r.metadata?.direction === 'credit' && r.status === 'draft')).length || 0} overdue`;
-
-      setMetrics(newMetrics);
-      setExceptions(exceptionsData?.map(e => ({ text: e.message, type: e.severity })) || []);
+      setExceptions(exceptionsData?.map(e => ({ 
+        text: e.message, 
+        type: e.severity === 'critical' ? 'danger' : (e.severity === 'high' || e.severity === 'medium') ? 'warning' : 'default' 
+      })) || []);
 
       setExpenses(expensesData?.map(e => ({
         category: e.category,
-        progress: e.percentage,
+        progress: e.percentage || 0, // Ensure percentage exists
         count: `${e.transaction_count} txns`,
         color: getCategoryColor(e.category)
       })) || []);
 
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [workbenchId, timeRange]);
+
+  useEffect(() => {
+    if (workbenchId) {
+      fetchDashboardData();
+    }
+
+    const handleRefresh = () => {
+      console.log("Refreshing OpsOverview data...");
+      fetchDashboardData();
+    };
+
+    window.addEventListener('refresh-workbench-data', handleRefresh);
+    return () => window.removeEventListener('refresh-workbench-data', handleRefresh);
+  }, [workbenchId, fetchDashboardData]); // Refetch when fetchDashboardData changes (which depends on timeRange)
 
   const getCategoryColor = (category) => {
     const colors = ["bg-primary-300", "bg-primary-200", "bg-primary-400", "bg-primary-100", "bg-gray-600"];
@@ -248,8 +165,27 @@ export default function OpsOverview({ workbenchId }) {
     <div className="space-y-8">
       {/* Daily Operations Metrics */}
       <div>
-        <h3 className="text-lg font-bold text-white mb-1">Daily Operations</h3>
-        <p className="text-gray-500 text-xs mb-6">Cash position, payables, receivables & health metrics</p>
+        <div className="flex justify-between items-end mb-6">
+          <div>
+            <h3 className="text-lg font-bold text-white mb-1">Operations Overview</h3>
+            <p className="text-gray-500 text-xs">Cash position, payables, receivables & health metrics</p>
+          </div>
+          <div className="flex space-x-1 bg-white/5 p-1 rounded-lg">
+             {['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'all'].map((range) => (
+               <button
+                 key={range}
+                 onClick={() => setTimeRange(range)}
+                 className={`px-3 py-1.5 text-[10px] font-medium rounded-md transition-all uppercase ${
+                   timeRange === range 
+                     ? 'bg-primary-500 text-white shadow-lg' 
+                     : 'text-gray-400 hover:text-white hover:bg-white/5'
+                 }`}
+               >
+                 {range}
+               </button>
+             ))}
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {metrics.map((m, i) => (

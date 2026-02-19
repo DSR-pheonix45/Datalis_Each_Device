@@ -14,8 +14,8 @@ import WorkbenchDetail from "../pages/WorkbenchDetail";
 import OnboardingTour from "./Onboarding/OnboardingTour";
 import FeedbackModal from "./ChatArea/FeedbackModal";
 import { backendService } from "../services/backendService";
+import { intelligenceService } from "../services/intelligenceService";
 import { supabase } from "../lib/supabase";
-import { BsRocketTakeoff } from "react-icons/bs";
 
 export default function MainApp() {
   useTheme(); // Theme context is used for side effects
@@ -23,14 +23,75 @@ export default function MainApp() {
   const { user, profile, loading: authLoading } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [currentSessionId, setCurrentSessionId] = useState(null);
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [currentContext, setCurrentContext] = useState("");
-  const [activeWorkbench, setActiveWorkbench] = useState(null);
+  
+  // State with sessionStorage persistence
+  const [messages, setMessages] = useState(() => {
+    try {
+      const savedUserId = sessionStorage.getItem("dabby_userId");
+      if (user?.id && savedUserId && savedUserId !== user.id) return [];
+
+      const saved = sessionStorage.getItem("dabby_messages");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [currentSessionId, setCurrentSessionId] = useState(() => {
+    const savedUserId = sessionStorage.getItem("dabby_userId");
+    if (user?.id && savedUserId && savedUserId !== user.id) return null;
+
+    const saved = sessionStorage.getItem("dabby_currentSessionId");
+    return (saved && saved !== "null") ? saved : null;
+  });
+
+  const [webSearchEnabled, setWebSearchEnabled] = useState(() => {
+    const savedUserId = sessionStorage.getItem("dabby_userId");
+    if (user?.id && savedUserId && savedUserId !== user.id) return false;
+
+    return sessionStorage.getItem("dabby_webSearchEnabled") === "true";
+  });
+
+  const [uploadedFiles, setUploadedFiles] = useState(() => {
+    try {
+      const savedUserId = sessionStorage.getItem("dabby_userId");
+      if (user?.id && savedUserId && savedUserId !== user.id) return [];
+
+      const saved = sessionStorage.getItem("dabby_uploadedFiles");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [currentContext, setCurrentContext] = useState(() => {
+    const savedUserId = sessionStorage.getItem("dabby_userId");
+    if (user?.id && savedUserId && savedUserId !== user.id) return "";
+
+    return sessionStorage.getItem("dabby_currentContext") || "";
+  });
+
+  const [activeWorkbench, setActiveWorkbench] = useState(() => {
+    try {
+      const savedUserId = sessionStorage.getItem("dabby_userId");
+      if (user?.id && savedUserId && savedUserId !== user.id) return null;
+
+      const saved = sessionStorage.getItem("dabby_activeWorkbench");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [availableWorkbenches, setAvailableWorkbenches] = useState([]);
-  const [isInConversation, setIsInConversation] = useState(false);
+  
+  const [isInConversation, setIsInConversation] = useState(() => {
+    const savedUserId = sessionStorage.getItem("dabby_userId");
+    if (user?.id && savedUserId && savedUserId !== user.id) return false;
+
+    return sessionStorage.getItem("dabby_isInConversation") === "true";
+  });
+
   const [isLoading, setIsLoading] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -64,6 +125,45 @@ export default function MainApp() {
     setShowTour(false);
     localStorage.setItem("dabby_onboarding_completed", "true");
   };
+
+  // Persist session state to sessionStorage
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (user?.id) {
+        sessionStorage.setItem("dabby_userId", user.id);
+      }
+      // Optimize storage: Check size before writing
+      try {
+        const serializedMessages = JSON.stringify(messages);
+        // Safety check: if > 5MB, maybe warn or truncate? For now just write.
+        sessionStorage.setItem("dabby_messages", serializedMessages);
+      } catch {
+        console.warn("Failed to save messages to session storage");
+      }
+      
+      sessionStorage.setItem("dabby_currentSessionId", currentSessionId || "");
+      sessionStorage.setItem("dabby_isInConversation", String(isInConversation));
+      sessionStorage.setItem("dabby_webSearchEnabled", String(webSearchEnabled));
+      sessionStorage.setItem("dabby_currentContext", currentContext);
+      
+      // Store file metadata only
+      const fileMetadata = uploadedFiles.map(f => ({
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        lastModified: f.lastModified
+      }));
+      sessionStorage.setItem("dabby_uploadedFiles", JSON.stringify(fileMetadata));
+      
+      if (activeWorkbench) {
+        sessionStorage.setItem("dabby_activeWorkbench", JSON.stringify(activeWorkbench));
+      } else {
+        sessionStorage.removeItem("dabby_activeWorkbench");
+      }
+    }, 1000); // Debounce by 1 second to avoid blocking main thread on every keystroke/update
+
+    return () => clearTimeout(timeoutId);
+  }, [messages, currentSessionId, isInConversation, uploadedFiles, currentContext, webSearchEnabled, activeWorkbench, user?.id]);
 
   // Auto-persist context to localStorage
   useEffect(() => {
@@ -123,7 +223,7 @@ export default function MainApp() {
       window.removeEventListener("clearChat", handleClearChat);
       window.removeEventListener("loadChatSession", handleLoadChatSession);
     };
-  }, [messages.length]);
+  }, [messages, currentSessionId, currentContext]);
 
   // Auto-save chat session and generate summary
   const saveChatSession = async (sessionMessages) => {
@@ -336,23 +436,21 @@ export default function MainApp() {
           // Fetch essential workbench data to include in prompt
           const [
             { data: workbench },
-            { data: cash },
-            { data: payables },
-            { data: receivables }
+            snapshot,
+            { payables, receivables }
           ] = await Promise.all([
             supabase.from('workbenches').select('*').eq('id', options.workbenchId).maybeSingle(),
-            supabase.from('view_cash_position').select('*').eq('workbench_id', options.workbenchId).maybeSingle(),
-            supabase.from('view_payables').select('*').eq('workbench_id', options.workbenchId),
-            supabase.from('view_receivables').select('*').eq('workbench_id', options.workbenchId)
+            intelligenceService.getFinancialSnapshotMetrics(options.workbenchId),
+            intelligenceService.getPayablesAndReceivables(options.workbenchId)
           ]);
           
           workbenchData = {
             name: workbench?.name || "Unknown Workbench",
-            cash_position: cash?.balance || 0,
+            cash_position: snapshot?.cashBalance || 0,
             total_payables: payables?.reduce((sum, p) => sum + p.total_amount, 0) || 0,
             total_receivables: receivables?.reduce((sum, r) => sum + r.total_amount, 0) || 0,
             summary: workbench 
-              ? `This is the financial workbench for ${workbench.name}. Current cash position is ₹${cash?.balance || 0}. Total Payables: ₹${payables?.reduce((sum, p) => sum + p.total_amount, 0) || 0}. Total Receivables: ₹${receivables?.reduce((sum, r) => sum + r.total_amount, 0) || 0}.`
+              ? `This is the financial workbench for ${workbench.name}. Current cash position is ₹${snapshot?.cashBalance || 0}. Total Payables: ₹${payables?.reduce((sum, p) => sum + p.total_amount, 0) || 0}. Total Receivables: ₹${receivables?.reduce((sum, r) => sum + r.total_amount, 0) || 0}.`
               : "No workbench data found."
           };
           console.log("[DEBUG] Workbench context built:", workbenchData);
@@ -372,7 +470,8 @@ export default function MainApp() {
         web_search: options.web || false,
         uploaded_files: options.uploadedFiles || [], // Pass File objects for frontend processing
         history: messages,
-        workbench_id: options.workbenchId
+        workbench_id: options.workbenchId,
+        currency: options.currency
       });
 
       if (llmResponse.error) {
@@ -534,6 +633,7 @@ export default function MainApp() {
                       workbenchContext={activeWorkbench}
                       availableWorkbenches={availableWorkbenches}
                       onToggleWorkbenchContext={handleToggleWorkbenchContext}
+                      userId={user?.id}
                     />
                 ) : (
                   <>

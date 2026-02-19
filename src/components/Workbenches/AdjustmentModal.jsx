@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   BsX, 
   BsArrowLeftRight,
@@ -8,7 +8,6 @@ import {
   BsLightningCharge
 } from "react-icons/bs";
 import { backendService } from "../../services/backendService";
-import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabase";
 import { toast } from "react-hot-toast";
 
@@ -21,7 +20,6 @@ const ADJUSTMENT_TYPES = [
 ];
 
 export default function AdjustmentModal({ isOpen, onClose, record, workbenchId, onSuccess }) {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [parties, setParties] = useState([]);
   const [formData, setFormData] = useState({
@@ -37,9 +35,9 @@ export default function AdjustmentModal({ isOpen, onClose, record, workbenchId, 
     if (isOpen && workbenchId) {
       fetchParties();
     }
-  }, [isOpen, workbenchId]);
+  }, [isOpen, workbenchId, fetchParties]);
 
-  const fetchParties = async () => {
+  const fetchParties = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('workbench_parties')
@@ -50,7 +48,7 @@ export default function AdjustmentModal({ isOpen, onClose, record, workbenchId, 
     } catch (err) {
       console.error("Error fetching parties:", err);
     }
-  };
+  }, [workbenchId]);
 
   useEffect(() => {
     if (record) {

@@ -1,6 +1,5 @@
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
-import { useTheme } from "../../context/ThemeContext";
 
 /**
  * SplitText - Animated text component that reveals characters/words one by one
@@ -23,12 +22,11 @@ export default function SplitText({
 }) {
     const ref = useRef(null);
     const isInView = useInView(ref, { once: true, margin: "-100px", amount: threshold });
-    const { theme } = useTheme();
 
     // Split text into characters or words
     const splitText = () => {
         if (splitType === "words") {
-            return text.split(" ").map((word, i) => ({
+            return text.split(" ").map((word) => ({
                 content: word,
                 isHighlight: highlightWords.includes(word) || highlightWords.some(hw => word.includes(hw)),
             }));
@@ -119,8 +117,6 @@ export function AnimatedHeading({
     delay = 0.02,
     ...props
 }) {
-    const { theme } = useTheme();
-
     return (
         <SplitText
             text={children}

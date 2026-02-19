@@ -12,7 +12,6 @@ export default function VoiceInput({
   const [error, setError] = useState(null);
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef(null);
-  const timeoutRef = useRef(null);
   const isListeningRef = useRef(false);
 
   // Create a new recognition instance with optimized settings
@@ -47,12 +46,9 @@ export default function VoiceInput({
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
-        } catch (e) {
+        } catch {
           // Ignore
         }
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
       }
     };
   }, []);
@@ -138,7 +134,7 @@ export default function VoiceInput({
         try {
           recognition.start();
           return; // Don't set listening to false, we're restarting
-        } catch (e) {
+        } catch {
           console.log('Could not restart recognition');
         }
       }
@@ -163,7 +159,7 @@ export default function VoiceInput({
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch (e) {
+      } catch {
         // Ignore stop errors
       }
     }

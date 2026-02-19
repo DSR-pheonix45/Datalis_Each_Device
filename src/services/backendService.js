@@ -60,45 +60,7 @@ export const backendService = {
     }
   },
 
-  /**
-   * Uploads and initiates document processing
-   */
-  async uploadDocument(workbenchId, file, documentType, ocrData = null) {
-    // 1. Upload to storage first (Edge Functions have limits on request size)
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `${workbenchId}/${fileName}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("workbench-documents")
-      .upload(filePath, file);
-
-    if (uploadError) throw uploadError;
-
-    // 2. Trigger the processing Edge Function
-    try {
-      const { data, error } = await supabase.functions.invoke('process-document', {
-        body: {
-          workbench_id: workbenchId,
-          file_path: filePath,
-          file_name: file.name,
-          file_size: file.size,
-          mime_type: file.type,
-          document_type: documentType,
-          ocr_data: ocrData // User's pre-processed OCR text
-        }
-      });
-
-      if (error) {
-        console.error('Edge Function Error (process-document):', error);
-        throw error;
-      }
-      return data;
-    } catch (err) {
-      console.error('Failed to call process-document:', err);
-      throw err;
-    }
-  },
 
   /**
    * Creates a new workbench and assigns the current user as founder

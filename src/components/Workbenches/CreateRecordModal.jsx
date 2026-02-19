@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   BsX,
   BsReceipt,
@@ -15,12 +15,12 @@ import {
   BsHash,
   BsChatLeftText,
   BsFileEarmarkText,
-  BsJournalText
+  BsJournalText,
+  BsHourglassSplit
 } from "react-icons/bs";
 import { backendService } from "../../services/backendService";
-import { useAuth } from "../../hooks/useAuth";
+
 import { supabase } from "../../lib/supabase";
-import { useEffect } from "react";
 import { toast } from "react-hot-toast";
 
 const RECORD_TYPES = [
@@ -31,11 +31,17 @@ const RECORD_TYPES = [
 ];
 
 export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSuccess }) {
-  const { user } = useAuth();
+
   const [loading, setLoading] = useState(false);
   const [parties, setParties] = useState([]);
   const [workbenchAccounts, setWorkbenchAccounts] = useState([]);
   const [partyAccounts, setPartyAccounts] = useState([]);
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [newAccount, setNewAccount] = useState({
+    account_name: '',
+    account_type: 'bank',
+    account_identifier: ''
+  });
   const [documents, setDocuments] = useState([]);
   const [formData, setFormData] = useState({
     record_type: 'transaction',
@@ -52,16 +58,16 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
       party_id: '',
       party_account_id: '',
       workbench_account_id: '',
+      account_id: '', // Alias for workbench_account_id for backend compatibility
       external_reference: '',
       source_document_id: '',
-      invoice_document_id: '',
       purpose: '',
 
       // Compliance specific
       name: '',
       form: '',
       deadline: '',
-      status: 'pending',
+      status: 'completed',
       filed_date: new Date().toISOString().split('T')[0],
 
       // Budget specific
@@ -76,23 +82,7 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
     }
   });
 
-  useEffect(() => {
-    if (isOpen && workbenchId) {
-      fetchParties();
-      fetchWorkbenchAccounts();
-      fetchDocuments();
-    }
-  }, [isOpen, workbenchId]);
-
-  useEffect(() => {
-    if (formData.metadata.party_id) {
-      fetchPartyAccounts(formData.metadata.party_id);
-    } else {
-      setPartyAccounts([]);
-    }
-  }, [formData.metadata.party_id]);
-
-  const fetchParties = async () => {
+  const fetchParties = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("workbench_parties")
@@ -105,9 +95,9 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
     } catch (err) {
       console.error("Error fetching parties:", err);
     }
-  };
+  }, [workbenchId]);
 
-  const fetchWorkbenchAccounts = async () => {
+  const fetchWorkbenchAccounts = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("workbench_accounts")
@@ -120,9 +110,9 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
     } catch (err) {
       console.error("Error fetching workbench accounts:", err);
     }
-  };
+  }, [workbenchId]);
 
-  const fetchPartyAccounts = async (partyId) => {
+  const fetchPartyAccounts = useCallback(async (partyId) => {
     try {
       const { data, error } = await supabase
         .from("party_accounts")
@@ -135,20 +125,78 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
     } catch (err) {
       console.error("Error fetching party accounts:", err);
     }
-  };
+  }, []);
 
-  const fetchDocuments = async () => {
+
+
+
+
+
+
+  const fetchDocuments = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from("workbench_documents")
-        .select("id, file_path, document_type")
-        .eq("workbench_id", workbenchId)
-        .order("created_at", { ascending: false });
+        .from('workbench_documents')
+        .select('id, file_path, document_type')
+        .eq('workbench_id', workbenchId)
+        .order('uploaded_at', { ascending: false });
 
       if (error) throw error;
       setDocuments(data || []);
     } catch (err) {
       console.error("Error fetching documents:", err);
+    }
+  }, [workbenchId]);
+
+  useEffect(() => {
+    if (isOpen && workbenchId) {
+      fetchParties();
+      fetchWorkbenchAccounts();
+      fetchDocuments();
+    }
+  }, [isOpen, workbenchId, fetchParties, fetchWorkbenchAccounts, fetchDocuments]);
+
+  useEffect(() => {
+    if (formData.metadata.party_id) {
+      fetchPartyAccounts(formData.metadata.party_id);
+    } else {
+      setPartyAccounts([]);
+    }
+  }, [formData.metadata.party_id, fetchPartyAccounts]);
+
+  const handleCreateAccount = async () => {
+    try {
+      if (!newAccount.account_name || !newAccount.account_identifier) {
+        toast.error("Please fill in all account details");
+        return;
+      }
+
+      setLoading(true);
+      
+      // Use backend service (Edge Function) instead of direct insert
+      const data = await backendService.createRecord(
+        workbenchId,
+        'party_account',
+        newAccount.account_name, // summary
+        {
+          party_id: formData.metadata.party_id,
+          ...newAccount
+        }
+      );
+
+      setPartyAccounts([...partyAccounts, data]);
+      setFormData({
+        ...formData,
+        metadata: { ...formData.metadata, party_account_id: data.id }
+      });
+      setShowAddAccount(false);
+      setNewAccount({ account_name: '', account_type: 'bank', account_identifier: '' });
+      toast.success("Account added successfully");
+    } catch (err) {
+      console.error("Error creating party account:", err);
+      toast.error("Failed to add account");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -156,7 +204,8 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.summary) {
+
+    if (formData.record_type !== 'transaction' && !formData.summary) {
       toast.error("Please provide a summary");
       return;
     }
@@ -166,14 +215,32 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
       return;
     }
 
+    if (formData.record_type === 'transaction') {
+      const { payment_type, external_reference, purpose } = formData.metadata;
+      
+      if (!purpose) {
+        toast.error("Please provide a purpose");
+        return;
+      }
+      
+      if (payment_type !== 'cash' && !external_reference) {
+        toast.error(`${payment_type.charAt(0).toUpperCase() + payment_type.slice(1)} transactions require a reference number`);
+        return;
+      }
+    }
+
     try {
       setLoading(true);
+
+      const summary = formData.record_type === 'transaction' 
+        ? formData.metadata.purpose 
+        : formData.summary;
 
       // Call the backend service which invokes the Edge Function
       await backendService.createRecord(
         workbenchId,
         formData.record_type,
-        formData.summary,
+        summary,
         formData.metadata
       );
 
@@ -236,23 +303,24 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
               </div>
             </div>
 
-            {/* Summary Input */}
-            <div className="space-y-3">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-1">Summary</label>
-              <textarea
-                required
-                rows={3}
-                placeholder={
-                  formData.record_type === 'transaction' ? "e.g. Monthly rent payment for office space" :
+            {/* Summary Input - Hide for transaction as it uses Purpose */}
+            {formData.record_type !== 'transaction' && (
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-1">Summary</label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder={
                     formData.record_type === 'compliance' ? "e.g. Annual GST return filing for FY25-26" :
                       formData.record_type === 'party' ? "e.g. Add new vendor for cloud services" :
                         "e.g. FY26 Marketing budget allocation for H1"
-                }
-                value={formData.summary}
-                onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-                className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-5 py-4 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all resize-none leading-relaxed"
-              />
-            </div>
+                  }
+                  value={formData.summary}
+                  onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+                  className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-5 py-4 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all resize-none leading-relaxed"
+                />
+              </div>
+            )}
 
             {/* Type-Specific Fields */}
             <div className="space-y-6">
@@ -313,23 +381,42 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
                       </div>
                     </div>
                     <div className="space-y-3">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-1">Payment Type</label>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-1">Status</label>
                       <div className="relative group">
-                        <BsCreditCard className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 text-sm group-focus-within:text-primary transition-colors" />
+                        <BsHourglassSplit className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 text-sm group-focus-within:text-primary transition-colors" />
                         <select
-                          value={formData.metadata.payment_type}
-                          onChange={(e) => setFormData({ ...formData, metadata: { ...formData.metadata, payment_type: e.target.value } })}
+                          value={formData.metadata.status}
+                          onChange={(e) => setFormData({ ...formData, metadata: { ...formData.metadata, status: e.target.value } })}
                           className="w-full bg-white/[0.03] border border-white/10 rounded-2xl pl-12 pr-10 py-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all appearance-none font-medium"
                         >
-                          <option value="bank" className="bg-[#0A0A0A]">Bank Transfer</option>
-                          <option value="upi" className="bg-[#0A0A0A]">UPI</option>
-                          <option value="gateway" className="bg-[#0A0A0A]">Payment Gateway</option>
-                          <option value="wallet" className="bg-[#0A0A0A]">Wallet</option>
-                          <option value="cash" className="bg-[#0A0A0A]">Cash</option>
+                          <option value="completed" className="bg-[#0A0A0A]">Completed</option>
+                          <option value="pending" className="bg-[#0A0A0A]">Pending</option>
+                          <option value="partial" className="bg-[#0A0A0A]">Partial</option>
                         </select>
                         <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-1">Payment Type</label>
+                    <div className="relative group">
+                      <BsCreditCard className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 text-sm group-focus-within:text-primary transition-colors" />
+                      <select
+                        value={formData.metadata.payment_type}
+                        onChange={(e) => setFormData({ ...formData, metadata: { ...formData.metadata, payment_type: e.target.value } })}
+                        className="w-full bg-white/[0.03] border border-white/10 rounded-2xl pl-12 pr-10 py-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all appearance-none font-medium"
+                      >
+                        <option value="bank" className="bg-[#0A0A0A]">Bank Transfer</option>
+                        <option value="upi" className="bg-[#0A0A0A]">UPI</option>
+                        <option value="gateway" className="bg-[#0A0A0A]">Payment Gateway</option>
+                        <option value="wallet" className="bg-[#0A0A0A]">Wallet</option>
+                        <option value="cash" className="bg-[#0A0A0A]">Cash</option>
+                      </select>
+                      <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                       </div>
                     </div>
                   </div>
@@ -340,7 +427,7 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
                       <BsBuilding className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 text-sm group-focus-within:text-primary transition-colors" />
                       <select
                         required
-                        value={formData.metadata.party_id}
+                        value={formData.metadata.party_id || ""}
                         onChange={(e) => setFormData({ ...formData, metadata: { ...formData.metadata, party_id: e.target.value } })}
                         className="w-full bg-white/[0.03] border border-white/10 rounded-2xl pl-12 pr-10 py-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all appearance-none font-medium"
                       >
@@ -359,25 +446,75 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
 
                   {formData.metadata.party_id && (
                     <div className="space-y-3">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-1">Party Account</label>
-                      <div className="relative group">
-                        <BsCreditCard className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 text-sm group-focus-within:text-primary transition-colors" />
-                        <select
-                          value={formData.metadata.party_account_id}
-                          onChange={(e) => setFormData({ ...formData, metadata: { ...formData.metadata, party_account_id: e.target.value } })}
-                          className="w-full bg-white/[0.03] border border-white/10 rounded-2xl pl-12 pr-10 py-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all appearance-none font-medium"
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-1">Party Account</label>
+                        <button
+                          type="button"
+                          onClick={() => setShowAddAccount(!showAddAccount)}
+                          className="text-[10px] text-primary hover:text-primary-300 font-medium transition-colors"
                         >
-                          <option value="" className="bg-[#0A0A0A]">Select party account (Optional)...</option>
-                          {partyAccounts.map(a => (
-                            <option key={a.id} value={a.id} className="bg-[#0A0A0A]">
-                              {a.account_name} ({a.account_type} - {a.account_identifier})
-                            </option>
-                          ))}
-                        </select>
-                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                        </div>
+                          {showAddAccount ? 'Cancel' : '+ Add Account'}
+                        </button>
                       </div>
+                      
+                      {showAddAccount ? (
+                        <div className="p-4 bg-white/[0.03] border border-white/10 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-2">
+                          <div className="grid grid-cols-2 gap-3">
+                            <input
+                              type="text"
+                              placeholder="Account Name (e.g. HDFC Bank)"
+                              value={newAccount.account_name}
+                              onChange={(e) => setNewAccount({ ...newAccount, account_name: e.target.value })}
+                              className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            />
+                            <select
+                              value={newAccount.account_type}
+                              onChange={(e) => setNewAccount({ ...newAccount, account_type: e.target.value })}
+                              className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            >
+                              <option value="bank">Bank Transfer</option>
+                              <option value="upi">UPI</option>
+                              <option value="gateway">Payment Gateway</option>
+                              <option value="wallet">Wallet</option>
+                              <option value="cash">Cash</option>
+                            </select>
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Identifier (e.g. XXXX1234 or user@upi)"
+                            value={newAccount.account_identifier}
+                            onChange={(e) => setNewAccount({ ...newAccount, account_identifier: e.target.value })}
+                            className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleCreateAccount}
+                            disabled={loading}
+                            className="w-full py-2 bg-primary/20 hover:bg-primary/30 text-primary rounded-xl text-xs font-bold uppercase tracking-wider transition-colors"
+                          >
+                            {loading ? 'Adding...' : 'Save Account'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative group">
+                          <BsCreditCard className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 text-sm group-focus-within:text-primary transition-colors" />
+                          <select
+                            value={formData.metadata.party_account_id}
+                            onChange={(e) => setFormData({ ...formData, metadata: { ...formData.metadata, party_account_id: e.target.value } })}
+                            className="w-full bg-white/[0.03] border border-white/10 rounded-2xl pl-12 pr-10 py-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all appearance-none font-medium"
+                          >
+                            <option value="" className="bg-[#0A0A0A]">Select party account (Optional)...</option>
+                            {partyAccounts.map(a => (
+                              <option key={a.id} value={a.id} className="bg-[#0A0A0A]">
+                                {a.account_name} ({a.account_type} - {a.account_identifier})
+                              </option>
+                            ))}
+                          </select>
+                          <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -386,11 +523,19 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
                     <div className="relative group">
                       <BsBuilding className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 text-sm group-focus-within:text-primary transition-colors" />
                       <select
+                        required
                         value={formData.metadata.workbench_account_id}
-                        onChange={(e) => setFormData({ ...formData, metadata: { ...formData.metadata, workbench_account_id: e.target.value } })}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          metadata: { 
+                            ...formData.metadata, 
+                            workbench_account_id: e.target.value,
+                            account_id: e.target.value // Update alias for backend compatibility
+                          } 
+                        })}
                         className="w-full bg-white/[0.03] border border-white/10 rounded-2xl pl-12 pr-10 py-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all appearance-none font-medium"
                       >
-                        <option value="" className="bg-[#0A0A0A]">Select workbench account (Optional)...</option>
+                        <option value="" className="bg-[#0A0A0A]">Select workbench account...</option>
                         {workbenchAccounts.map(a => (
                           <option key={a.id} value={a.id} className="bg-[#0A0A0A]">
                             {a.name} ({a.account_type} - {a.account_identifier})
@@ -433,48 +578,28 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-1">Source Document</label>
-                      <div className="relative group">
-                        <BsFileEarmarkText className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 text-sm group-focus-within:text-primary transition-colors" />
-                        <select
-                          value={formData.metadata.source_document_id}
-                          onChange={(e) => setFormData({ ...formData, metadata: { ...formData.metadata, source_document_id: e.target.value } })}
-                          className="w-full bg-white/[0.03] border border-white/10 rounded-2xl pl-12 pr-10 py-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all appearance-none font-medium"
-                        >
-                          <option value="" className="bg-[#0A0A0A]">Select document (Optional)...</option>
-                          {documents.map(d => (
-                            <option key={d.id} value={d.id} className="bg-[#0A0A0A]">
-                              {d.file_path.split('/').pop()} ({d.document_type})
-                            </option>
-                          ))}
-                        </select>
-                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-1">Invoice Document</label>
-                      <div className="relative group">
-                        <BsJournalText className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 text-sm group-focus-within:text-primary transition-colors" />
-                        <select
-                          required={formData.metadata.payment_type === 'cash'}
-                          value={formData.metadata.invoice_document_id}
-                          onChange={(e) => setFormData({ ...formData, metadata: { ...formData.metadata, invoice_document_id: e.target.value } })}
-                          className="w-full bg-white/[0.03] border border-white/10 rounded-2xl pl-12 pr-10 py-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all appearance-none font-medium"
-                        >
-                          <option value="" className="bg-[#0A0A0A]">Select invoice (Required for Cash)...</option>
-                          {documents.filter(d => d.document_type === 'invoice').map(d => (
-                            <option key={d.id} value={d.id} className="bg-[#0A0A0A]">
-                              {d.file_path.split('/').pop()}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                        </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-1">
+                      Source Document {formData.metadata.payment_type === 'cash' && <span className="text-primary normal-case tracking-normal ml-1">(Upload Invoice Here)</span>}
+                    </label>
+                    <div className="relative group">
+                      <BsFileEarmarkText className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 text-sm group-focus-within:text-primary transition-colors" />
+                      <select
+                        value={formData.metadata.source_document_id || ""}
+                        onChange={(e) => setFormData({ ...formData, metadata: { ...formData.metadata, source_document_id: e.target.value } })}
+                        className="w-full bg-white/[0.03] border border-white/10 rounded-2xl pl-12 pr-10 py-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all appearance-none font-medium"
+                      >
+                        <option value="" className="bg-[#0A0A0A]">
+                          {formData.metadata.payment_type === 'cash' ? "Select Invoice / Source Document..." : "Select document (Optional)..."}
+                        </option>
+                        {documents.map(d => (
+                          <option key={d.id} value={d.id} className="bg-[#0A0A0A]">
+                            {d.file_path.split('/').pop()} ({d.document_type})
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                       </div>
                     </div>
                   </div>
@@ -659,17 +784,19 @@ export default function CreateRecordModal({ isOpen, onClose, workbenchId, onSucc
                 </div>
               )}
 
-              {/* Common Notes Field */}
-              <div className="space-y-3">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-1">Notes (Optional)</label>
-                <textarea
-                  rows={2}
-                  placeholder="Any additional details..."
-                  value={formData.metadata.notes}
-                  onChange={(e) => setFormData({ ...formData, metadata: { ...formData.metadata, notes: e.target.value } })}
-                  className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-5 py-4 text-sm text-white placeholder:text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all resize-none font-medium"
-                />
-              </div>
+              {/* Common Notes Field - Hide for transaction */}
+              {formData.record_type !== 'transaction' && (
+                <div className="space-y-3">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] ml-1">Notes (Optional)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Any additional details..."
+                    value={formData.metadata.notes}
+                    onChange={(e) => setFormData({ ...formData, metadata: { ...formData.metadata, notes: e.target.value } })}
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-5 py-4 text-sm text-white placeholder:text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all resize-none font-medium"
+                  />
+                </div>
+              )}
             </div>
           </div>
 

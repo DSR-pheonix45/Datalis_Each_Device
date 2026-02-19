@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabase";
 import { BsCheckCircleFill, BsExclamationTriangleFill, BsBuilding } from "react-icons/bs";
@@ -9,7 +9,6 @@ import Card from "../components/shared/Card";
 export default function AcceptInvite() {
     const { token } = useParams();
     const navigate = useNavigate();
-    const location = useLocation();
     const { user, loading: authLoading } = useAuth();
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState(null);

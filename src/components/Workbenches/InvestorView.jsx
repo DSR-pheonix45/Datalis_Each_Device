@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   BsArrowUpRight, 
   BsArrowDownRight, 
@@ -7,7 +7,10 @@ import {
   BsClock, 
   BsWallet2, 
   BsBank,
-  BsReceipt
+  BsReceipt,
+  BsShieldCheck,
+  BsLightningCharge,
+  BsSpeedometer2
 } from "react-icons/bs";
 import { 
   AreaChart, 
@@ -24,6 +27,7 @@ import {
 } from "recharts";
 import Card from "../shared/Card";
 import { supabase } from "../../lib/supabase";
+import { intelligenceService } from "../../services/intelligenceService";
 
 const REVENUE_DATA_PLACEHOLDER = [
   { name: "Aug", revenue: 0, expenses: 0 },
@@ -44,82 +48,67 @@ const EXPENSE_BREAKDOWN_PLACEHOLDER = [
 
 export default function InvestorView({ workbenchId }) {
   const [loading, setLoading] = useState(true);
-  const [revenueTrend, setRevenueTrend] = useState(REVENUE_DATA_PLACEHOLDER);
+  const [revenueTrend] = useState(REVENUE_DATA_PLACEHOLDER);
   const [expenseBreakdown, setExpenseBreakdown] = useState(EXPENSE_BREAKDOWN_PLACEHOLDER);
   const [pandl, setPandl] = useState([]);
   const [balanceSheet, setBalanceSheet] = useState([]);
   const [cashFlow, setCashFlow] = useState({ operating: 0, investing: 0, financing: 0 });
   const [auditLogs, setAuditLogs] = useState([]);
+  const [secretMetrics, setSecretMetrics] = useState(null);
   const [kpis, setKpis] = useState([
     { label: "MONTHLY REVENUE", value: "₹0", change: "0%", isPositive: true, period: "Current", icon: BsGraphUp },
     { label: "BURN RATE", value: "₹0", change: "0%", isPositive: false, period: "Current", icon: BsCashStack },
     { label: "RUNWAY", value: "0 months", change: "0%", isPositive: true, period: "Current", icon: BsClock },
-    { label: "GROSS MARGIN", value: "0%", change: "0%", isPositive: true, period: "Current", icon: BsWallet2 },
+    { label: "PROFIT MARGIN", value: "0%", change: "0%", isPositive: true, period: "Current", icon: BsWallet2 },
     { label: "CASH POSITION", value: "₹0", change: "0%", isPositive: true, period: "Current", icon: BsBank },
-    { label: "RECEIVABLES", value: "₹0", change: "0%", isPositive: false, period: "Current", icon: BsReceipt },
+    { label: "REVENUE GROWTH", value: "0%", change: "0%", isPositive: true, period: "MoM", icon: BsReceipt },
   ]);
 
-  useEffect(() => {
-    if (workbenchId) {
-      fetchInvestorData();
-    }
-  }, [workbenchId]);
-
-  const fetchInvestorData = async () => {
+  const fetchInvestorData = useCallback(async () => {
     try {
       setLoading(true);
 
-      // Fetch Cash Position
-      const { data: cashData } = await supabase
-        .from('view_cash_position')
-        .select('*')
-        .eq('workbench_id', workbenchId)
-        .maybeSingle();
-
-      // Fetch Receivables
-      const { data: receivablesData } = await supabase
-        .from('view_receivables')
-        .select('*')
-        .eq('workbench_id', workbenchId);
-
-      // Fetch Expense Categorization for Breakdown
-      const { data: expensesData } = await supabase
-        .from('view_expense_categorization')
-        .select('*')
-        .eq('workbench_id', workbenchId);
-
-      // Fetch P&L data
-      const { data: pandlData } = await supabase
-        .from('profit_and_loss')
-        .select('*')
-        .eq('workbench_id', workbenchId);
-
-      // Fetch Balance Sheet data
-      const { data: bsData } = await supabase
-        .from('balance_sheet')
-        .select('*')
-        .eq('workbench_id', workbenchId);
-
-      // Update KPIs
-      const updatedKpis = [...kpis];
+      // Fetch Intelligence Metrics
+      const investorMetrics = await intelligenceService.getInvestorMetrics(workbenchId);
+      const secretMetricsData = await intelligenceService.getSecretMetrics(workbenchId, investorMetrics);
       
-      if (cashData) {
-        updatedKpis[4].value = `₹${(cashData.balance / 10000000).toFixed(2)}Cr`;
+      if (secretMetricsData) {
+        setSecretMetrics(secretMetricsData);
       }
 
-      if (receivablesData) {
-        const totalRec = receivablesData.reduce((sum, r) => sum + r.total_amount, 0);
-        updatedKpis[5].value = `₹${(totalRec / 100000).toFixed(1)}L`;
+      // Update KPIs with Live Data
+      if (investorMetrics) {
+        setKpis(currentKpis => {
+          const updatedKpis = currentKpis.map(kpi => ({ ...kpi }));
+          // Revenue
+          updatedKpis[0].value = `₹${(investorMetrics.revenue / 100000).toFixed(1)}L`;
+          // Burn Rate
+          updatedKpis[1].value = `₹${(investorMetrics.monthlyBurn / 100000).toFixed(1)}L`;
+          // Runway
+          updatedKpis[2].value = `${investorMetrics.runwayMonths.toFixed(1)} months`;
+          // Profit Margin
+          updatedKpis[3].value = `${investorMetrics.profitMargin.toFixed(1)}%`;
+          // Cash Position
+          updatedKpis[4].value = `₹${(investorMetrics.cashBalance / 100000).toFixed(1)}L`;
+          // Revenue Growth
+          updatedKpis[5].value = `${investorMetrics.revenueGrowth.toFixed(1)}%`;
+          updatedKpis[5].isPositive = investorMetrics.revenueGrowth >= 0;
+
+          return updatedKpis;
+        });
       }
 
-      // Fetch Cash Flow data (simple version for now)
-      const { data: cashFlowData } = await supabase
+      // Fetch ALL ledger entries to reconstruct views on frontend
+      // This avoids dependency on views that may have been deleted
+      const { data: allEntries } = await supabase
         .from('ledger_entries')
         .select(`
           amount,
           entry_type,
           transaction_date,
-          workbench_accounts!account_id (
+          workbench_accounts!inner (
+            id,
+            account_name,
             account_type,
             category,
             cash_impact
@@ -127,23 +116,72 @@ export default function InvestorView({ workbenchId }) {
         `)
         .eq('workbench_id', workbenchId);
 
-      if (cashFlowData) {
-        let op = 0;
-        let inv = 0;
-        let fin = 0;
+      if (allEntries) {
+          const expenseMap = {};
+          const pandlItems = {};
+          const bsItems = {};
+          let op = 0, inv = 0, fin = 0;
 
-        cashFlowData.forEach(entry => {
-          const acc = entry.workbench_accounts;
-          if (acc && acc.cash_impact) {
-            const val = entry.entry_type === 'credit' ? entry.amount : -entry.amount;
-            if (acc.account_type === 'Revenue' || acc.account_type === 'Expense') op += val;
-            else if (acc.account_type === 'Asset') inv += val;
-            else if (acc.account_type === 'Liability' || acc.account_type === 'Equity') fin += val;
-          }
-        });
+          allEntries.forEach(entry => {
+              const acc = entry.workbench_accounts;
+              const amount = entry.amount || 0;
+              const isDebit = entry.entry_type === 'debit';
+              const signedAmount = isDebit ? amount : -amount; // Debit +, Credit -
 
-        setCashFlow({ operating: op, investing: inv, financing: fin });
-       }
+              // 1. Expense Breakdown
+              if (acc.account_type === 'Expense') {
+                  const cat = acc.category || 'Uncategorized';
+                  expenseMap[cat] = (expenseMap[cat] || 0) + amount;
+              }
+
+              // 2. P&L Items
+              if (acc.account_type === 'Revenue' || acc.account_type === 'Expense') {
+                  if (!pandlItems[acc.account_name]) {
+                      pandlItems[acc.account_name] = {
+                          account_name: acc.account_name,
+                          category: acc.category || acc.account_type,
+                          balance: 0,
+                          account_type: acc.account_type
+                      };
+                  }
+                  // P&L Balance: Debit +, Credit - (consistent with standard)
+                  pandlItems[acc.account_name].balance += signedAmount;
+              }
+
+              // 3. Balance Sheet Items
+              if (['Asset', 'Liability', 'Equity'].includes(acc.account_type)) {
+                   if (!bsItems[acc.account_name]) {
+                       bsItems[acc.account_name] = {
+                           account_name: acc.account_name,
+                           account_type: acc.account_type,
+                           balance: 0
+                       };
+                   }
+                   bsItems[acc.account_name].balance += signedAmount;
+              }
+
+              // 4. Cash Flow (Legacy Logic preserved but using fetched data)
+              if (acc.cash_impact) {
+                  const val = !isDebit ? amount : -amount; // Credit +, Debit -
+                  if (acc.account_type === 'Revenue' || acc.account_type === 'Expense') op += val;
+                  else if (acc.account_type === 'Asset') inv += val;
+                  else if (acc.account_type === 'Liability' || acc.account_type === 'Equity') fin += val;
+              }
+          });
+
+          // Update State
+          setPandl(Object.values(pandlItems));
+          setBalanceSheet(Object.values(bsItems));
+          
+          const colors = ["#FBBF24", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899"];
+          const formattedExpenses = Object.keys(expenseMap).map((cat, i) => ({
+              name: cat,
+              value: parseFloat((expenseMap[cat] / 100000).toFixed(1)),
+              color: colors[i % colors.length]
+          }));
+          setExpenseBreakdown(formattedExpenses.length > 0 ? formattedExpenses : EXPENSE_BREAKDOWN_PLACEHOLDER);
+          setCashFlow({ operating: op, investing: inv, financing: fin });
+      }
 
        // Fetch Audit Logs
        const { data: logsData } = await supabase
@@ -157,27 +195,18 @@ export default function InvestorView({ workbenchId }) {
          setAuditLogs(logsData);
        }
 
-       setKpis(updatedKpis);
-      setPandl(pandlData || []);
-      setBalanceSheet(bsData || []);
-
-      // Update Expense Breakdown
-      if (expensesData) {
-        const colors = ["#FBBF24", "#10B981", "#3B82F6", "#8B5CF6", "#EC4899"];
-        const formattedExpenses = expensesData.map((e, i) => ({
-          name: e.category,
-          value: parseFloat((e.total_amount / 100000).toFixed(1)),
-          color: colors[i % colors.length]
-        }));
-        setExpenseBreakdown(formattedExpenses.length > 0 ? formattedExpenses : EXPENSE_BREAKDOWN_PLACEHOLDER);
-      }
-
     } catch (err) {
       console.error("Error fetching investor data:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [workbenchId]);
+
+  useEffect(() => {
+    if (workbenchId) {
+      fetchInvestorData();
+    }
+  }, [workbenchId, fetchInvestorData]);
 
   const calculateGrossProfit = () => {
     const revenue = pandl.filter(i => i.category === 'Revenue').reduce((sum, i) => sum + i.balance, 0);
@@ -231,6 +260,56 @@ export default function InvestorView({ workbenchId }) {
           </Card>
         ))}
       </div>
+
+      {/* Dabby's Intelligence Layer */}
+      {secretMetrics && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card variant="dark" className="border-indigo-500/20 p-6 bg-gradient-to-br from-indigo-900/20 to-purple-900/20">
+             <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <BsShieldCheck className="text-indigo-400" />
+                  <h3 className="text-sm font-semibold text-indigo-100">Financial Health Score</h3>
+                </div>
+                <span className="text-2xl font-bold text-white">{secretMetrics.financialHealthScore.toFixed(0)}/100</span>
+             </div>
+             <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                <div 
+                  className="bg-indigo-500 h-full rounded-full" 
+                  style={{ width: `${secretMetrics.financialHealthScore}%` }} 
+                />
+             </div>
+             <p className="text-xs text-indigo-300/60 mt-2">Composite score based on profit, runway, stability & growth.</p>
+          </Card>
+
+          <Card variant="dark" className="border-emerald-500/20 p-6 bg-gradient-to-br from-emerald-900/20 to-teal-900/20">
+             <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <BsLightningCharge className="text-emerald-400" />
+                  <h3 className="text-sm font-semibold text-emerald-100">Cash Stability Index</h3>
+                </div>
+                <span className="text-2xl font-bold text-white">{secretMetrics.cashStabilityIndex.toFixed(1)}</span>
+             </div>
+             <p className="text-xs text-emerald-300/60 mt-2">Standard deviation of monthly cash balance (Lower is better).</p>
+          </Card>
+
+          <Card variant="dark" className="border-blue-500/20 p-6 bg-gradient-to-br from-blue-900/20 to-cyan-900/20">
+             <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <BsSpeedometer2 className="text-blue-400" />
+                  <h3 className="text-sm font-semibold text-blue-100">Operational Discipline</h3>
+                </div>
+                <span className="text-2xl font-bold text-white">{secretMetrics.operationalDisciplineScore}%</span>
+             </div>
+             <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                <div 
+                  className="bg-blue-500 h-full rounded-full" 
+                  style={{ width: `${secretMetrics.operationalDisciplineScore}%` }} 
+                />
+             </div>
+             <p className="text-xs text-blue-300/60 mt-2">Percentage of categorized transactions vs total.</p>
+          </Card>
+        </div>
+      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

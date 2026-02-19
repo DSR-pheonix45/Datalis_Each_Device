@@ -5,84 +5,48 @@ import {
     LineChart, Line, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import {
-    BsRocket, BsCashStack, BsReceipt, BsFileEarmarkText,
+    BsRocket, BsCashStack, BsGraphUp, BsBank,
     BsCheckAll, BsCheckCircleFill, BsShieldCheck,
-    BsUpload, BsPlusLg, BsChatDots, BsArrowRight
+    BsUpload, BsPlusLg, BsChatDots, BsArrowRight,
+    BsExclamationTriangle, BsInfoCircle, BsClock
 } from 'react-icons/bs';
-import Groq from "groq-sdk";
+import { intelligenceService } from "../../services/intelligenceService";
 
-// --- MOCK DATA FOR VISUALIZATIONS ---
-const TREND_DATA = [
-    { name: 'Jan', value: 4000 },
-    { name: 'Feb', value: 3000 },
-    { name: 'Mar', value: 5000 },
-    { name: 'Apr', value: 4500 },
-    { name: 'May', value: 6000 },
-    { name: 'Jun', value: 7500 },
-];
-
-const MINI_CASH_DATA = [
-    { val: 20 }, { val: 40 }, { val: 35 }, { val: 50 }, { val: 45 }, { val: 60 }, { val: 55 }
-];
-
-const MINI_TXN_DATA = [
-    { val: 10 }, { val: 25 }, { val: 15 }, { val: 30 }, { val: 20 }, { val: 40 }, { val: 35 }
-];
-
-const DOCS_DATA = [
-    { name: 'Invoices', value: 45 },
-    { name: 'Contracts', value: 25 },
-    { name: 'Reports', value: 30 },
-];
-
-const CATEGORY_DATA = [
-    { name: 'Income', value: 65, color: '#10B981' }, // Emerald
-    { name: 'Expenses', value: 25, color: '#EF4444' }, // Red
-    { name: 'Savings', value: 10, color: '#3B82F6' }, // Blue
-];
-
-const COLORS = ['#8884d8', '#82ca9d', '#ffc658'];
-
-// --- COMPONENT ---
 export default function WorkbenchWelcome({ onAction, workbenchId }) {
-    const [aiCapabilities, setAiCapabilities] = useState([
-        "Automated expense categorization via intelligent parsing",
-        "Real-time anomaly detection in cash flow patterns",
-        "Predictive budget forecasting based on historical data"
-    ]);
-    const [loadingAI, setLoadingAI] = useState(true);
+    const [snapshot, setSnapshot] = useState(null);
+    const [trendData, setTrendData] = useState([]);
+    const [categoryData, setCategoryData] = useState([]);
+    const [exceptions, setExceptions] = useState([]);
+    const [loadingExceptions, setLoadingExceptions] = useState(true);
 
-    // Fetch AI Capabilities on Mount
+    // Fetch Financial Snapshot, Visualizations & Exceptions
     useEffect(() => {
-        const fetchAICapabilities = async () => {
-            try {
-                const groq = new Groq({ apiKey: import.meta.env.VITE_GROQ_API_KEY, dangerouslyAllowBrowser: true });
-                const completion = await groq.chat.completions.create({
-                    messages: [
-                        {
-                            role: "user",
-                            content: "Generate 3 brief, one-line capabilities for a new AI-powered financial workbench. Return ONLY the 3 lines, nothing else."
-                        }
-                    ],
-                    model: "llama-3.3-70b-versatile",
-                });
+        const fetchData = async () => {
+            if (workbenchId) {
+                setLoadingExceptions(true);
+                try {
+                    // Parallel fetch for snapshot, visualizations, and exceptions
+                    const [snap, viz, exc] = await Promise.all([
+                        intelligenceService.getFinancialSnapshotMetrics(workbenchId),
+                        intelligenceService.getDashboardVisualizations(workbenchId),
+                        intelligenceService.getWorkbenchExceptions(workbenchId)
+                    ]);
 
-                const content = completion.choices[0]?.message?.content;
-                if (content) {
-                    const lines = content.split('\n').filter(line => line.trim().length > 0).slice(0, 3);
-                    // Clean up numbering or bullets if present
-                    const cleanLines = lines.map(l => l.replace(/^[-*1-3\.]+\s*/, ''));
-                    setAiCapabilities(cleanLines);
+                    if (snap) setSnapshot(snap);
+                    if (viz) {
+                        setTrendData(viz.revenueTrend);
+                        setCategoryData(viz.expenseDistribution);
+                    }
+                    if (exc) setExceptions(exc);
+                } catch (error) {
+                    console.error("Error fetching workbench data:", error);
+                } finally {
+                    setLoadingExceptions(false);
                 }
-            } catch (error) {
-                console.error("Failed to fetch AI capabilities, using default:", error);
-            } finally {
-                setLoadingAI(false);
             }
         };
-
-        fetchAICapabilities();
-    }, []);
+        fetchData();
+    }, [workbenchId]);
 
     // Animation Variants
     const containerVariants = {
@@ -97,6 +61,12 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
         hidden: { y: 20, opacity: 0 },
         visible: { y: 0, opacity: 1 }
     };
+
+    // Default data for empty states
+    const defaultTrend = Array(6).fill(0).map((_, i) => ({ name: `M-${5-i}`, value: 0 }));
+    const defaultMiniCash = [
+        { val: 20 }, { val: 40 }, { val: 35 }, { val: 50 }, { val: 45 }, { val: 60 }, { val: 55 }
+    ];
 
     return (
         <motion.div
@@ -126,7 +96,7 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
                 </p>
             </motion.div>
 
-            {/* B. STATISTICS CARDS (3 Columns) */}
+            {/* B. FINANCIAL SNAPSHOT CARDS (3 Columns) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Card 1: Cash Position */}
                 <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-teal-500/20 rounded-2xl p-6 relative overflow-hidden group hover:border-teal-400/50 transition-colors">
@@ -136,11 +106,13 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
                         </div>
                         <span className="px-2 py-1 bg-teal-500/10 text-teal-300 text-[10px] uppercase font-bold rounded-full">Live Monitor</span>
                     </div>
-                    <div className="text-2xl font-bold mb-1">Cash Position</div>
-                    <div className="text-sm text-gray-500 mb-4">Real-time liquidity tracking</div>
+                    <div className="text-2xl font-bold mb-1">
+                        {snapshot ? `₹${snapshot.cashBalance.toLocaleString()}` : '₹0'}
+                    </div>
+                    <div className="text-sm text-gray-500 mb-4">Current Cash Balance</div>
                     <div className="h-24 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={MINI_CASH_DATA}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                            <AreaChart data={defaultMiniCash} width={100} height={100}>
                                 <defs>
                                     <linearGradient id="colorCash" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#00C6C2" stopOpacity={0.3} />
@@ -153,73 +125,109 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
                     </div>
                 </motion.div>
 
-                {/* Card 2: Transactions */}
+                {/* Card 2: Balance Sheet Snapshot */}
                 <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-teal-500/20 rounded-2xl p-6 relative overflow-hidden group hover:border-teal-400/50 transition-colors">
                     <div className="flex justify-between items-start mb-4">
                         <div className="p-3 bg-teal-500/10 rounded-xl text-teal-400">
-                            <BsReceipt className="text-2xl" />
+                            <BsBank className="text-2xl" />
                         </div>
-                        <span className="px-2 py-1 bg-teal-500/10 text-teal-300 text-[10px] uppercase font-bold rounded-full">Auto-Sync</span>
+                        <span className="px-2 py-1 bg-teal-500/10 text-teal-300 text-[10px] uppercase font-bold rounded-full">Balance Sheet</span>
                     </div>
-                    <div className="text-2xl font-bold mb-1">Transactions</div>
-                    <div className="text-sm text-gray-500 mb-4">Automated entry logging</div>
-                    <div className="h-24 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={MINI_TXN_DATA}>
-                                <Line type="monotone" dataKey="val" stroke="#00C6C2" strokeWidth={2} dot={false} />
-                            </LineChart>
-                        </ResponsiveContainer>
+                    <div className="space-y-3">
+                         <div className="flex justify-between items-center text-sm border-b border-white/5 pb-1">
+                            <span className="text-gray-400">Assets</span>
+                            <span className="text-emerald-400 font-bold">
+                                {snapshot ? `₹${(snapshot.balanceSheet.assets / 100000).toFixed(1)}L` : '₹0L'}
+                            </span>
+                         </div>
+                         <div className="flex justify-between items-center text-sm border-b border-white/5 pb-1">
+                            <span className="text-gray-400">Liabilities</span>
+                            <span className="text-rose-400 font-bold">
+                                {snapshot ? `₹${(snapshot.balanceSheet.liabilities / 100000).toFixed(1)}L` : '₹0L'}
+                            </span>
+                         </div>
                     </div>
                 </motion.div>
 
-                {/* Card 3: Documents */}
+                {/* Card 3: Cash Flow (Current Month) */}
                 <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-teal-500/20 rounded-2xl p-6 relative overflow-hidden group hover:border-teal-400/50 transition-colors">
                     <div className="flex justify-between items-start mb-4">
                         <div className="p-3 bg-teal-500/10 rounded-xl text-teal-400">
-                            <BsFileEarmarkText className="text-2xl" />
+                            <BsGraphUp className="text-2xl" />
                         </div>
-                        <span className="px-2 py-1 bg-teal-500/10 text-teal-300 text-[10px] uppercase font-bold rounded-full">OCR Ready</span>
+                        <span className="px-2 py-1 bg-teal-500/10 text-teal-300 text-[10px] uppercase font-bold rounded-full">Cash Flow</span>
                     </div>
-                    <div className="text-2xl font-bold mb-1">Documents</div>
-                    <div className="text-sm text-gray-500 mb-4">Smart extraction & storage</div>
-                    <div className="h-24 w-full flex items-center justify-center">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie data={DOCS_DATA} innerRadius={25} outerRadius={35} paddingAngle={5} dataKey="value">
-                                    {DOCS_DATA.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={['#00FFD1', '#00C6C2', '#00B4AC'][index % 3]} />
-                                    ))}
-                                </Pie>
-                            </PieChart>
-                        </ResponsiveContainer>
+                    <div className="space-y-3">
+                         <div className="flex justify-between items-center text-sm border-b border-white/5 pb-1">
+                            <span className="text-gray-400">Operating</span>
+                            <span className={snapshot?.cashFlow.operating >= 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
+                                {snapshot ? `₹${(snapshot.cashFlow.operating / 100000).toFixed(1)}L` : '₹0L'}
+                            </span>
+                         </div>
+                         <div className="flex justify-between items-center text-sm border-b border-white/5 pb-1">
+                            <span className="text-gray-400">Investing</span>
+                            <span className={snapshot?.cashFlow.investing >= 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
+                                {snapshot ? `₹${(snapshot.cashFlow.investing / 100000).toFixed(1)}L` : '₹0L'}
+                            </span>
+                         </div>
+                         <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-400">Financing</span>
+                            <span className={snapshot?.cashFlow.financing >= 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
+                                {snapshot ? `₹${(snapshot.cashFlow.financing / 100000).toFixed(1)}L` : '₹0L'}
+                            </span>
+                         </div>
                     </div>
                 </motion.div>
             </div>
 
-            {/* C. AI CAPABILITIES */}
+            {/* C. REAL-TIME EXCEPTIONS */}
             <motion.div variants={itemVariants}>
                 <div className="flex items-center gap-3 mb-6">
-                    <BsCheckAll className="text-teal-400 text-xl" />
-                    <h2 className="text-xl font-bold">AI-Powered Capabilities</h2>
+                    <BsExclamationTriangle className="text-amber-400 text-xl" />
+                    <h2 className="text-xl font-bold">Workbench Exceptions</h2>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {aiCapabilities.map((cap, idx) => (
-                        <div key={idx} className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-4 flex items-center gap-3 hover:bg-teal-500/20 transition-colors">
-                            <BsCheckCircleFill className="text-teal-400 text-lg shrink-0" />
-                            <span className="text-sm text-gray-300 font-medium">{cap}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {loadingExceptions ? (
+                        <div className="col-span-full text-center text-gray-500 py-4">Scanning for exceptions...</div>
+                    ) : exceptions.length > 0 ? (
+                        exceptions.map((exc, idx) => {
+                            const config = {
+                                critical: { color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', icon: BsExclamationTriangle },
+                                high: { color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', icon: BsExclamationTriangle },
+                                medium: { color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: BsInfoCircle },
+                                low: { color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', icon: BsInfoCircle }
+                            }[exc.severity] || { color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', icon: BsInfoCircle };
+                            
+                            const Icon = config.icon;
+                            
+                            return (
+                                <div key={idx} className={`${config.bg} ${config.border} border rounded-xl p-4 flex items-start gap-3 hover:bg-opacity-80 transition-colors`}>
+                                    <Icon className={`${config.color} text-lg shrink-0 mt-0.5`} />
+                                    <div>
+                                        <div className={`text-sm font-bold ${config.color} uppercase text-[10px] mb-1`}>{exc.type.replace(/_/g, ' ')}</div>
+                                        <span className="text-sm text-gray-300 font-medium">{exc.message}</span>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <div className="col-span-full bg-teal-500/5 border border-teal-500/20 rounded-xl p-6 flex flex-col items-center justify-center text-center">
+                            <BsCheckCircleFill className="text-teal-400 text-3xl mb-3" />
+                            <h3 className="text-lg font-bold text-white">All Clear</h3>
+                            <p className="text-sm text-gray-400">No critical exceptions detected at this time.</p>
                         </div>
-                    ))}
+                    )}
                 </div>
             </motion.div>
 
             {/* D. FINANCIAL OVERVIEW DASHBOARD */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[400px]">
                 {/* Large Chart 1: Revenue Trend */}
-                <motion.div variants={itemVariants} className="lg:col-span-2 bg-[#0A0A0A] border border-teal-500/20 rounded-2xl p-6 flex flex-col">
+                <motion.div variants={itemVariants} className="lg:col-span-2 bg-[#0A0A0A] border border-teal-500/20 rounded-2xl p-6 flex flex-col h-full">
                     <h3 className="text-lg font-bold mb-4">Projected Revenue Trend</h3>
-                    <div className="flex-1 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={TREND_DATA}>
+                    <div className="flex-1 w-full min-h-0">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                            <AreaChart data={trendData.length > 0 ? trendData : defaultTrend} width={500} height={300}>
                                 <defs>
                                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#00C6C2" stopOpacity={0.3} />
@@ -240,36 +248,44 @@ export default function WorkbenchWelcome({ onAction, workbenchId }) {
                 </motion.div>
 
                 {/* Large Chart 2: Category Distribution */}
-                <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-teal-500/20 rounded-2xl p-6 flex flex-col">
+                <motion.div variants={itemVariants} className="bg-[#0A0A0A] border border-teal-500/20 rounded-2xl p-6 flex flex-col h-full">
                     <h3 className="text-lg font-bold mb-4">Category Distribution</h3>
-                    <div className="flex-1 w-full relative">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={CATEGORY_DATA}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {CATEGORY_DATA.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={['#00FFD1', '#00C6C2', '#00B4AC'][index % 3]} />
-                                    ))}
-                                </Pie>
-                                <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #333', borderRadius: '8px' }}
-                                    itemStyle={{ color: '#fff' }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
+                    <div className="flex-1 w-full relative min-h-0">
+                        {categoryData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                                <PieChart width={300} height={300}>
+                                    <Pie
+                                        data={categoryData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {categoryData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color || ['#00FFD1', '#00C6C2', '#00B4AC'][index % 3]} />
+                                        ))}
+                                    </Pie>
+                                    <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #333', borderRadius: '8px' }}
+                                        itemStyle={{ color: '#fff' }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                                No expense data available
+                            </div>
+                        )}
                         {/* Center Stats */}
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center -mt-4">
-                            <div className="text-2xl font-bold text-white">100%</div>
-                            <div className="text-[10px] text-gray-500 uppercase tracking-widest">Visibility</div>
-                        </div>
+                        {categoryData.length > 0 && (
+                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center -mt-4">
+                                <div className="text-2xl font-bold text-white">100%</div>
+                                <div className="text-[10px] text-gray-500 uppercase tracking-widest">Visibility</div>
+                            </div>
+                        )}
                     </div>
                 </motion.div>
             </div>

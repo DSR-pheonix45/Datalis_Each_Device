@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "../../context/ThemeContext";
 import { Link } from "react-router-dom";
@@ -127,7 +127,11 @@ export default function GSTInvoiceGenerator() {
     }
 
     // Invoice Info (Top Right)
-    doc.setTextColor(invoiceData.letterhead ? ...textColor : 255, 255, 255);
+    if (invoiceData.letterhead) {
+      doc.setTextColor(...textColor);
+    } else {
+      doc.setTextColor(255, 255, 255);
+    }
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Invoice #: ${invoiceData.invoiceNumber}`, pageWidth - 20, 20, { align: "right" });
@@ -245,7 +249,6 @@ export default function GSTInvoiceGenerator() {
 
     // Add Branding / Footer Image
     const pageHeight = doc.internal.pageSize.height;
-    const pageWidth = doc.internal.pageSize.width;
 
     if (invoiceData.footer) {
       doc.addImage(invoiceData.footer, 'PNG', 0, pageHeight - 40, pageWidth, 40);

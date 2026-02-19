@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { AuthContext } from './AuthContextBase';
 import { signOut, getCurrentUser, onAuthStateChange, supabase } from '../lib/supabase';
 
@@ -6,6 +6,10 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Use a ref to track authentication status to avoid unnecessary loading states
+  // during background refreshes or tab switches
+  const isAuthRef = useRef(false);
 
   /**
    * Fetch user profile safely
@@ -51,18 +55,20 @@ export function AuthProvider({ children }) {
     const initAuth = async () => {
       console.log("[DEBUG] AuthProvider: initAuth starting...");
       try {
-        const { user, error } = await getCurrentUser();
+        const { user: currentUser, error } = await getCurrentUser();
 
         if (error && error !== 'Auth session missing!') {
           console.error('[DEBUG] AuthProvider: Error getting session:', error);
         }
 
-        if (user) {
-          console.log("[DEBUG] AuthProvider: User found in session:", user.id);
-          setUser(user);
-          await fetchUserProfile(user.id);
+        if (currentUser) {
+          console.log("[DEBUG] AuthProvider: User found in session:", currentUser.id);
+          setUser(currentUser);
+          isAuthRef.current = true;
+          await fetchUserProfile(currentUser.id);
         } else {
           console.log("[DEBUG] AuthProvider: No user session found");
+          isAuthRef.current = false;
         }
       } catch (err) {
         console.error('[DEBUG] AuthProvider: Unexpected init error:', err);
@@ -79,19 +85,34 @@ export function AuthProvider({ children }) {
 
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         if (session?.user) {
-          console.log("[DEBUG] AuthProvider: Handling SIGNED_IN/UPDATE, setting loading=true");
-          setLoading(true);
+          // Only show loading for explicit sign-ins when we are NOT yet authenticated
+          // This prevents UI reload/flicker on tab switch or background token refresh
+          const shouldShowLoading = event === 'SIGNED_IN' && !isAuthRef.current;
+          
+          if (shouldShowLoading) {
+            console.log("[DEBUG] AuthProvider: Handling SIGNED_IN (new session), setting loading=true");
+            setLoading(true);
+          } else {
+            console.log(`[DEBUG] AuthProvider: Handling ${event} silently (already auth or refresh)`);
+          }
+
           setUser(session.user);
+          isAuthRef.current = true;
+          
           fetchUserProfile(session.user.id).finally(() => {
-            console.log("[DEBUG] AuthProvider: Profile fetch complete, setting loading=false");
-            setLoading(false);
+            if (shouldShowLoading) {
+              console.log("[DEBUG] AuthProvider: Profile fetch complete, setting loading=false");
+              setLoading(false);
+            }
           });
         }
       }
 
       if (event === 'SIGNED_OUT') {
+        console.log("[DEBUG] AuthProvider: User signed out");
         setUser(null);
         setProfile(null);
+        isAuthRef.current = false;
         setLoading(false);
       }
     });
@@ -110,6 +131,7 @@ export function AuthProvider({ children }) {
       await signOut();
       setUser(null);
       setProfile(null);
+      isAuthRef.current = false;
       return { success: true };
     } catch (error) {
       console.error('Sign out error:', error);
@@ -119,14 +141,14 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     setUser,
     profile,
     setProfile,
     loading,
     signOut: handleSignOut
-  };
+  }), [user, profile, loading]);
 
   return (
     <AuthContext.Provider value={value}>

@@ -2,11 +2,9 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { BsX, BsBuilding, BsInfoCircle, BsGlobe, BsCurrencyDollar, BsCalendarCheck } from "react-icons/bs";
-import { useAuth } from "../../hooks/useAuth";
 import { backendService } from "../../services/backendService";
 
 export default function CreateWorkbenchModal({ isOpen, onClose, onSuccess }) {
-  const { user } = useAuth();
   const [name, setName] = useState("");
   const [location, setLocation] = useState("India");
   const [currency, setCurrency] = useState("INR");

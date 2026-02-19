@@ -71,6 +71,23 @@ serve(async (req: Request) => {
 
       if (logError) console.error("Error creating party log record:", logError);
       recordData = logRecord || data;
+    } else if (record_type === 'party_account') {
+      entity_type = 'party_accounts';
+      const { data, error } = await supabaseClient
+        .from("party_accounts")
+        .insert({
+          party_id: metadata.party_id,
+          account_type: metadata.account_type,
+          account_identifier: metadata.account_identifier,
+          account_name: metadata.account_name,
+          is_primary: metadata.is_primary || false
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      reference_id = data.id;
+      recordData = data;
     } else {
       // All other types (transaction, compliance, budget) go into workbench_records
       const insertData: any = {
@@ -92,7 +109,7 @@ serve(async (req: Request) => {
         insertData.net_amount = amount;
         insertData.issue_date = metadata.transaction_date;
         insertData.party_id = metadata.party_id && metadata.party_id !== "" ? metadata.party_id : null;
-        insertData.status = 'confirmed'; // Transactions are confirmed by default if created manually?
+        insertData.status = metadata.status || 'completed'; 
       } else if (record_type === 'budget') {
         const amount = parseFloat(metadata.amount) || 0;
         insertData.gross_amount = amount;
@@ -225,9 +242,9 @@ serve(async (req: Request) => {
           workbench_account_id: metadata.workbench_account_id && metadata.workbench_account_id !== "" ? metadata.workbench_account_id : null,
           external_reference: metadata.external_reference || null,
           source_document_id: metadata.source_document_id && metadata.source_document_id !== "" ? metadata.source_document_id : null,
-          invoice_document_id: metadata.invoice_document_id && metadata.invoice_document_id !== "" ? metadata.invoice_document_id : null,
           purpose: metadata.purpose || summary || null, // Fallback to summary
-          created_by: user.id
+          created_by: user.id,
+          status: metadata.status || 'completed'
         };
 
         console.log("Inserting domain transaction:", insertData);
@@ -239,10 +256,10 @@ serve(async (req: Request) => {
           .single();
 
         if (tError) {
-          console.error("Error creating domain transaction:", tError);
+          console.error("Error creating domain transaction:", JSON.stringify(tError));
           // Rollback workbench_record
           await supabaseClient.from("workbench_records").delete().eq("id", data.id);
-          throw new Error(`Transaction table insert failed: ${tError.message}`);
+          throw new Error(`Transaction table insert failed: ${tError.message} (Code: ${tError.code}, Details: ${tError.details || 'None'})`);
         }
 
         // Link workbench_record to transaction

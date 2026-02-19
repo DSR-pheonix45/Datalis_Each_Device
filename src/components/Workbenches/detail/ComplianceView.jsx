@@ -4,28 +4,41 @@ import {
   BsCheckCircle, 
   BsExclamationCircle,
   BsSearch,
-  BsFilter
+  BsFilter,
+  BsShieldCheck
 } from "react-icons/bs";
 import { supabase } from "../../../lib/supabase";
+import { intelligenceService } from "../../../services/intelligenceService";
 
 export default function ComplianceView({ workbenchId }) {
   const [compliances, setCompliances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [metrics, setMetrics] = useState({
+    completionPercentage: 0,
+    overdueRiskScore: 0
+  });
 
   const fetchCompliances = useCallback(async () => {
     if (!workbenchId) return;
     
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("compliances")
-        .select("*")
-        .eq("workbench_id", workbenchId)
-        .order("deadline", { ascending: true });
+      const [complianceData, metricsData] = await Promise.all([
+        supabase
+          .from("compliances")
+          .select("*")
+          .eq("workbench_id", workbenchId)
+          .order("deadline", { ascending: true }),
+        intelligenceService.getComplianceMetrics(workbenchId)
+      ]);
 
-      if (error) throw error;
-      setCompliances(data || []);
+      if (complianceData.error) throw complianceData.error;
+      setCompliances(complianceData.data || []);
+      
+      if (metricsData) {
+        setMetrics(metricsData);
+      }
     } catch (err) {
       console.error("Error fetching compliances:", err);
     } finally {
@@ -97,10 +110,38 @@ export default function ComplianceView({ workbenchId }) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h3 className="text-lg font-bold text-white mb-1">Compliance Checklist</h3>
-          <div className="flex items-center space-x-4 text-[10px] font-bold tracking-wider uppercase">
-            <span className="text-emerald-500">{stats.filed} compliant</span>
-            <span className="text-primary-300">{stats.pending} pending</span>
-            <span className="text-red-500">{stats.overdue} overdue</span>
+          
+          <div className="flex items-center space-x-6 mt-2">
+             {/* Key Metrics */}
+             <div className="flex items-center space-x-2">
+                <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+                    <BsCheckCircle />
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Completion</span>
+                    <span className="text-sm font-bold text-white">{metrics.completionPercentage.toFixed(0)}%</span>
+                </div>
+             </div>
+
+             <div className="flex items-center space-x-2">
+                <div className="p-2 bg-red-500/10 rounded-lg text-red-400">
+                    <BsExclamationCircle />
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Risk Score</span>
+                    <span className={`text-sm font-bold ${metrics.overdueRiskScore > 0.5 ? 'text-red-500' : 'text-white'}`}>
+                        {(metrics.overdueRiskScore * 100).toFixed(0)}
+                    </span>
+                </div>
+             </div>
+
+             <div className="h-8 w-px bg-white/10" />
+
+             <div className="flex items-center space-x-4 text-[10px] font-bold tracking-wider uppercase">
+                <span className="text-emerald-500">{stats.filed} compliant</span>
+                <span className="text-primary-300">{stats.pending} pending</span>
+                <span className="text-red-500">{stats.overdue} overdue</span>
+             </div>
           </div>
         </div>
 

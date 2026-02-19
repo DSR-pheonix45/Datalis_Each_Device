@@ -15,7 +15,6 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -108,7 +107,6 @@ export default function Login() {
       });
 
       if (error) throw error;
-      setResetSent(true);
       alert("Password reset link sent to your email!");
     } catch (err) {
       console.error('Reset password error:', err);

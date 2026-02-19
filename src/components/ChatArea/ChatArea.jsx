@@ -1,7 +1,8 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
 import ChatInput from "../ChatInput/ChatInput";
+import { rlService } from "../../services/ReinforcementLearningService";
 
 const ChatArea = ({
   messages: propMessages,
@@ -10,7 +11,17 @@ const ChatArea = ({
   workbenchContext,
   availableWorkbenches,
   onToggleWorkbenchContext,
+  userId
 }) => {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // [RL] Evaluate Session on Message Update
+  useEffect(() => {
+    if (propMessages && propMessages.length > 0) {
+      rlService.evaluateSession(userId, propMessages);
+    }
+  }, [propMessages, userId]);
+
   // Map MainApp messages to ChatArea format (preserve role property)
   const chatMessages = useMemo(() => {
     return propMessages.map((msg) => ({
@@ -24,14 +35,18 @@ const ChatArea = ({
     }));
   }, [propMessages]);
 
-  const messagesWithContext = chatMessages;
-
   return (
     <div className="flex flex-col h-full min-h-0 bg-transparent">
-      <ChatHeader />
+      <ChatHeader 
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+      />
 
       <div className="flex-1 min-h-0 overflow-hidden">
-        <MessageList messages={messagesWithContext} />
+        <MessageList 
+          messages={chatMessages} 
+          searchQuery={searchQuery}
+        />
       </div>
 
       <ChatInput

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import Message from "./Message";
 
-const MessageList = ({ messages }) => {
+const MessageList = ({ messages, searchQuery = "" }) => {
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -62,6 +62,7 @@ const MessageList = ({ messages }) => {
               <Message
                 key={message.id || `msg-${message.timestamp}-${index}`}
                 message={message}
+                searchQuery={searchQuery}
               />
             ))}
             <div ref={messagesEndRef} />

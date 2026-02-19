@@ -13,10 +13,17 @@ import { useAuth } from "../hooks/useAuth";
 import Card from "../components/shared/Card";
 import CreateWorkbenchModal from "../components/Workbenches/CreateWorkbenchModal";
 
+import { intelligenceService } from "../services/intelligenceService";
+
 export default function Workbenches() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [workbenches, setWorkbenches] = useState([]);
+  const [metrics, setMetrics] = useState({
+    activeWorkbenches: 0,
+    lastActivity: null,
+    engagementScore: 0
+  });
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -33,21 +40,31 @@ export default function Workbenches() {
     try {
       console.log("[DEBUG] Workbenches: Fetching list for user", user.id);
       setLoading(true);
-      const { data, error } = await supabase
-        .from("workbenches")
-        .select(`
-          *,
-          workbench_members!inner(user_id)
-        `)
-        .eq("workbench_members.user_id", user.id)
-        .order("created_at", { ascending: false });
+      
+      const [wbResponse, metricsData] = await Promise.all([
+        supabase
+          .from("workbenches")
+          .select(`
+            *,
+            workbench_members!inner(user_id)
+          `)
+          .eq("workbench_members.user_id", user.id)
+          .order("created_at", { ascending: false }),
+        intelligenceService.getUserDashboardMetrics(user.id)
+      ]);
 
-      if (error) {
-        console.error("[DEBUG] Workbenches: Error fetching list:", error);
-        throw error;
+      if (wbResponse.error) {
+        console.error("[DEBUG] Workbenches: Error fetching list:", wbResponse.error);
+        throw wbResponse.error;
       }
-      console.log("[DEBUG] Workbenches: Response:", data);
-      setWorkbenches(data || []);
+      
+      console.log("[DEBUG] Workbenches: Response:", wbResponse.data);
+      setWorkbenches(wbResponse.data || []);
+      
+      if (metricsData) {
+        setMetrics(metricsData);
+      }
+
     } catch (err) {
       console.error("Error fetching workbenches:", err);
     } finally {
@@ -91,6 +108,37 @@ export default function Workbenches() {
       <header className="mb-10">
         <h1 className="text-3xl font-bold text-white mb-2">Workbenches</h1>
         <p className="text-gray-400">Your collaborative financial workbenches</p>
+        
+        {/* User Dashboard Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+          <Card variant="dark" className="p-6 border-primary-300/20 bg-primary-300/5">
+             <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-primary-200">Active Workbenches</span>
+                <BsBuilding className="text-primary-300" />
+             </div>
+             <div className="text-3xl font-bold text-white">{metrics.activeWorkbenches}</div>
+          </Card>
+          
+          <Card variant="dark" className="p-6 border-emerald-500/20 bg-emerald-500/5">
+             <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-emerald-200">Engagement Score</span>
+                <div className="flex items-center space-x-1">
+                  <span className="text-xs text-emerald-400 font-bold bg-emerald-400/10 px-2 py-0.5 rounded-full">Internal</span>
+                </div>
+             </div>
+             <div className="text-3xl font-bold text-white">{metrics.engagementScore}</div>
+          </Card>
+
+          <Card variant="dark" className="p-6 border-blue-500/20 bg-blue-500/5">
+             <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-blue-200">Last Activity</span>
+                <BsCalendarCheck className="text-blue-300" />
+             </div>
+             <div className="text-lg font-bold text-white">
+                {metrics.lastActivity ? getTimeAgo(metrics.lastActivity) : 'No activity'}
+             </div>
+          </Card>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
