@@ -39,7 +39,9 @@ export default function Signup() {
         email: trimmedEmail,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/oauth/callback`
+          emailRedirectTo: import.meta.env.PROD 
+            ? 'https://datalis.in/oauth/callback' 
+            : `${window.location.origin}/oauth/callback`
         }
       });
 
@@ -77,7 +79,9 @@ export default function Signup() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/oauth/callback`
+          redirectTo: import.meta.env.PROD 
+            ? 'https://datalis.in/oauth/callback' 
+            : `${window.location.origin}/oauth/callback`
         }
       });
 

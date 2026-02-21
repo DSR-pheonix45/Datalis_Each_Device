@@ -78,7 +78,9 @@ export default function Login() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/oauth/callback`
+          redirectTo: import.meta.env.PROD 
+            ? 'https://datalis.in/oauth/callback' 
+            : `${window.location.origin}/oauth/callback`
         }
       });
 
