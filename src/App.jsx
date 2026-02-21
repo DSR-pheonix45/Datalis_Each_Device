@@ -107,7 +107,6 @@ function App() {
                 <Route path="/payment-coming-soon" element={<PaymentComingSoon />} />
               </Route>
               <Route path="/oauth/callback" element={<OAuthCallback />} />
-              <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="/auth/callback" element={<OAuthCallback />} />
               <Route path="/invite/:token" element={<AcceptInvite />} />
 
