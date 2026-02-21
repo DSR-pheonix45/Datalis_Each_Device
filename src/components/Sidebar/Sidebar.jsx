@@ -145,8 +145,9 @@ export default function Sidebar({
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
-  const [workbenches, setWorkbenches] = useState([]);
+  // const [workbenches, setWorkbenches] = useState([]);
 
+  /*
   const fetchWorkbenches = useCallback(async () => {
     if (!user) return;
     try {
@@ -165,6 +166,7 @@ export default function Sidebar({
       console.error("Error fetching workbenches:", err);
     }
   }, [user]);
+  */
 
   const fetchChatHistory = useCallback(async () => {
     if (!user) return;
@@ -200,7 +202,7 @@ export default function Sidebar({
 
   useEffect(() => {
     fetchChatHistory();
-    fetchWorkbenches();
+    // fetchWorkbenches();
 
     // Keyboard shortcut for search (Ctrl+K)
     const handleKeyDown = (e) => {
@@ -221,7 +223,7 @@ export default function Sidebar({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("chatHistoryUpdated", handleChatHistoryUpdate);
     };
-  }, [user, fetchChatHistory, fetchWorkbenches]);
+  }, [user, fetchChatHistory]); // removed fetchWorkbenches
 
   const loadChatSession = async (sessionId) => {
     try {
@@ -311,7 +313,7 @@ export default function Sidebar({
             </span>
           </button>
 
-          {/* Workbenches Icon */}
+          {/* Workbenches Icon - HIDDEN
           <button
             onClick={() => navigate("/dashboard/workbenches")}
             className="p-3 text-[#7D8590] hover:bg-[#161B22] hover:text-[#E6EDF3] rounded-lg transition-all group relative"
@@ -323,6 +325,7 @@ export default function Sidebar({
               Workbenches
             </span>
           </button>
+          */}
 
           {/* Spacer */}
           <div className="flex-1"></div>
@@ -372,6 +375,7 @@ export default function Sidebar({
 
           {/* Expandable Sections - Scrollable area */}
           <div className="flex-1 min-h-0 overflow-y-auto pb-4">
+          {/* Workbenches Section - HIDDEN
             <ExpandableSection
               title="Workbenches"
               isExpanded={expandedSections.workbenches}
@@ -409,6 +413,7 @@ export default function Sidebar({
                 </div>
               )}
             </ExpandableSection>
+          */}
 
             <ExpandableSection
               title="History"

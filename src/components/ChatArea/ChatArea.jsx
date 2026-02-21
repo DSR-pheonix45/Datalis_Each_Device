@@ -9,8 +9,8 @@ const ChatArea = ({
   onSendMessage,
   uploadedFiles,
   workbenchContext,
-  availableWorkbenches,
-  onToggleWorkbenchContext,
+  // availableWorkbenches,
+  // onToggleWorkbenchContext,
   userId
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,8 +54,8 @@ const ChatArea = ({
         uploadedFiles={uploadedFiles}
         placeholder="Ask Dabby Consultant anything..."
         workbenchContext={workbenchContext}
-        availableWorkbenches={availableWorkbenches}
-        onToggleWorkbenchContext={onToggleWorkbenchContext}
+        // availableWorkbenches={availableWorkbenches}
+        // onToggleWorkbenchContext={onToggleWorkbenchContext}
       />
     </div>
   );

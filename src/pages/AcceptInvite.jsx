@@ -50,7 +50,9 @@ export default function AcceptInvite() {
             // Wait a moment then redirect
             if (data && data.workbench_id) {
                 setTimeout(() => {
-                    navigate(`/dashboard/workbench/${data.workbench_id}`);
+                    // Redirect to dashboard root since workbenches are currently hidden
+                    navigate('/dashboard'); 
+                    // navigate(`/dashboard/workbench/${data.workbench_id}`);
                 }, 2000);
             } else {
                 throw new Error("Invalid response from server");

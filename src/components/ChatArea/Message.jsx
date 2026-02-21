@@ -203,7 +203,7 @@ const Message = ({ message, searchQuery = "" }) => {
                                     >
                                         {highlightText(message.content, searchQuery)}
 
-                                        {/* Workbench Context Display */}
+                                        {/* Workbench Context Display - HIDDEN
                                         {message.options?.workbenchId && (
                                             <div className="mt-3 pt-3 border-t border-white/10">
                                                 <div className="flex items-center gap-2 text-xs text-teal-400 mb-2">
@@ -214,8 +214,9 @@ const Message = ({ message, searchQuery = "" }) => {
                                                 </div>
                                             </div>
                                         )}
+                                        */}
 
-                                        {/* Attached Documents Display */}
+                                        {/* Attached Documents Display - HIDDEN
                                         {message.options?.selectedDocuments && message.options.selectedDocuments.length > 0 && (
                                             <div className="mt-3 pt-3 border-t border-white/10">
                                                 <div className="flex items-center gap-2 text-xs text-purple-400 mb-2">
@@ -245,6 +246,7 @@ const Message = ({ message, searchQuery = "" }) => {
                                                 </div>
                                             </div>
                                         )}
+                                        */}
 
                                         {/* Attached Files Display */}
                                         {(message.metadata?.files || message.options?.uploadedFiles) && (message.metadata?.files?.length > 0 || message.options?.uploadedFiles?.length > 0) && (

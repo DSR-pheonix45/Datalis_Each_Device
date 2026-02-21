@@ -9,8 +9,8 @@ import ChatArea from "./ChatArea/ChatArea";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../hooks/useAuth";
 import Settings from "./Settings/Settings";
-import Workbenches from "../pages/Workbenches";
-import WorkbenchDetail from "../pages/WorkbenchDetail";
+// import Workbenches from "../pages/Workbenches";
+// import WorkbenchDetail from "../pages/WorkbenchDetail";
 import OnboardingTour from "./Onboarding/OnboardingTour";
 import FeedbackModal from "./ChatArea/FeedbackModal";
 import { backendService } from "../services/backendService";
@@ -71,6 +71,7 @@ export default function MainApp() {
     return sessionStorage.getItem("dabby_currentContext") || "";
   });
 
+  /*
   const [activeWorkbench, setActiveWorkbench] = useState(() => {
     try {
       const savedUserId = sessionStorage.getItem("dabby_userId");
@@ -84,6 +85,12 @@ export default function MainApp() {
   });
 
   const [availableWorkbenches, setAvailableWorkbenches] = useState([]);
+  */
+  const activeWorkbench = null;
+  // eslint-disable-next-line no-unused-vars
+  const setActiveWorkbench = () => {};
+  // const availableWorkbenches = [];
+  // const setAvailableWorkbenches = () => {};
   
   const [isInConversation, setIsInConversation] = useState(() => {
     const savedUserId = sessionStorage.getItem("dabby_userId");
@@ -286,6 +293,7 @@ export default function MainApp() {
   };
 
   // Fetch all available workbenches for context selection
+  /*
   useEffect(() => {
     const fetchAllWorkbenches = async () => {
       if (authLoading || !user?.id) return;
@@ -314,7 +322,9 @@ export default function MainApp() {
     };
     fetchAllWorkbenches();
   }, [user?.id, authLoading]);
+  */
 
+  /*
   // Handle workbench context toggle from ChatInput
   const handleToggleWorkbenchContext = (workbench = null) => {
     if (workbench) {
@@ -356,6 +366,7 @@ export default function MainApp() {
       // setActiveWorkbench(null); 
     }
   }, [location.pathname, activeWorkbench]);
+  */
 
   const handleSendMessage = async (
     message,
@@ -630,9 +641,9 @@ export default function MainApp() {
                       chatContainerRef={chatContainerRef}
                       onSendMessage={handleSendMessage}
                       uploadedFiles={uploadedFiles}
-                      workbenchContext={activeWorkbench}
-                      availableWorkbenches={availableWorkbenches}
-                      onToggleWorkbenchContext={handleToggleWorkbenchContext}
+                      workbenchContext={null}
+                      // availableWorkbenches={[]}
+                      // onToggleWorkbenchContext={() => {}}
                       userId={user?.id}
                     />
                 ) : (
@@ -657,8 +668,8 @@ export default function MainApp() {
               }
             />
             <Route path="settings" element={<Settings />} />
-            <Route path="workbenches" element={<Workbenches />} />
-            <Route path="workbenches/:id" element={<WorkbenchDetail />} />
+            {/* <Route path="workbenches" element={<Workbenches />} /> */}
+            {/* <Route path="workbenches/:id" element={<WorkbenchDetail />} /> */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </div>
@@ -671,9 +682,9 @@ export default function MainApp() {
             onSendMessage={handleSendMessage}
             webSearchEnabled={webSearchEnabled}
             uploadedFiles={uploadedFiles}
-            workbenchContext={activeWorkbench}
-            availableWorkbenches={availableWorkbenches}
-            onToggleWorkbenchContext={handleToggleWorkbenchContext}
+            workbenchContext={null}
+            // availableWorkbenches={[]}
+            // onToggleWorkbenchContext={() => {}}
           />
         )}
 

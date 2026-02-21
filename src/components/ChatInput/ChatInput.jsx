@@ -36,14 +36,14 @@ const ChatInput = forwardRef(function ChatInput(
     webSearchEnabled = false,
     uploadedFiles = [],
     workbenchContext = null,
-    availableWorkbenches = [],
-    onToggleWorkbenchContext = null,
+    // availableWorkbenches = [],
+    // onToggleWorkbenchContext = null,
   },
   ref
 ) {
   const [message, setMessage] = useState(initialMessage);
   const [isFocused, setIsFocused] = useState(false);
-  const [showWorkbenchSelector, setShowWorkbenchSelector] = useState(false);
+  // const [showWorkbenchSelector, setShowWorkbenchSelector] = useState(false);
   const [webEnabled, setWebEnabled] = useState(webSearchEnabled);
   const [isLoading, setIsLoading] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
@@ -345,94 +345,7 @@ const ChatInput = forwardRef(function ChatInput(
               </button>
             </div>
 
-            {/* Workbench Context Toggle */}
-            <div className="flex items-center gap-1 px-1 relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowWorkbenchSelector(!showWorkbenchSelector);
-                }}
-                disabled={disabled || isLoading}
-                title={
-                  workbenchContext?.active
-                    ? `Active Workbench: ${workbenchContext.name}`
-                    : availableWorkbenches.length > 0
-                      ? "Select Workbench"
-                      : "No Workbenches Available"
-                }
-                className={`group/btn relative p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-all duration-200 ${workbenchContext?.active
-                  ? "text-teal-400 bg-teal-500/10 shadow-[0_0_10px_rgba(20,184,166,0.1)]"
-                  : "text-gray-400 hover:text-teal-400 hover:bg-teal-500/10"
-                  }`}
-              >
-                <BsBriefcase className="text-base sm:text-lg" />
-                {workbenchContext?.active && (
-                  <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-teal-400 rounded-full animate-pulse"></div>
-                )}
-              </button>
-
-              {/* Workbench Selector Dropdown */}
-              {showWorkbenchSelector && (
-                <div className="absolute bottom-full mb-2 left-0 w-72 bg-[#161B22] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-slide-up">
-                  <div className="px-3 py-2 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                      {workbenchContext?.active ? 'Change Workbench' : 'Select Workbench'}
-                    </span>
-                    <button onClick={() => setShowWorkbenchSelector(false)} className="text-gray-500 hover:text-white">
-                      <BsX />
-                    </button>
-                  </div>
-
-                  {/* Clear Selection Option */}
-                  {workbenchContext?.active && (
-                    <button
-                      onClick={() => {
-                        onToggleWorkbenchContext(); // Toggle off
-                        setShowWorkbenchSelector(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-red-500/10 transition-all border-b border-white/5 text-red-400"
-                    >
-                      <BsX className="text-sm flex-shrink-0" />
-                      <span className="text-xs font-medium">Clear Selection</span>
-                    </button>
-                  )}
-
-                  <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                    {availableWorkbenches.length > 0 ? (
-                      availableWorkbenches.map((wb) => (
-                        <button
-                          key={wb.id}
-                          onClick={() => {
-                            onToggleWorkbenchContext(wb);
-                            setShowWorkbenchSelector(false);
-                          }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-white/5 transition-all border-b border-white/5 last:border-0 ${workbenchContext?.id === wb.id ? "bg-teal-500/10 text-teal-400 border-l-2 border-l-teal-400" : "text-gray-300"
-                            }`}
-                        >
-                          <BsBriefcase className="text-sm flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs truncate font-medium">{wb.name}</div>
-                            {workbenchContext?.id === wb.id && (
-                              <div className="text-[10px] text-teal-400/70 mt-0.5">Currently Active</div>
-                            )}
-                          </div>
-                          {workbenchContext?.id === wb.id && (
-                            <BsCheck2Circle className="text-teal-400 flex-shrink-0" />
-                          )}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-6 text-center">
-                        <BsBriefcase className="text-gray-600 text-2xl mx-auto mb-2 opacity-20" />
-                        <p className="text-xs text-gray-500">No workbenches found.</p>
-                        <p className="text-[10px] text-gray-600 mt-1">Create one in the sidebar first.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-            </div>
+            {/* Workbench Context Toggle - HIDDEN */}
 
             {/* Main Text Input Area */}
             <div className="flex-1 relative py-2.5 sm:py-3 px-1 sm:px-2 min-w-0">
@@ -487,7 +400,7 @@ const ChatInput = forwardRef(function ChatInput(
               </button>
             </div>
 
-            {/* Workbench Context Preview */}
+            {/* Workbench Context Preview - HIDDEN
             {workbenchContext?.active && (
               <div className="absolute bottom-full left-0 right-0 sm:right-auto mb-2 sm:mb-4 p-2 bg-[#161B22]/95 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-teal-500/30 shadow-2xl flex flex-col gap-2 sm:min-w-[300px] animate-slide-up z-30 mx-2 sm:mx-0">
                 <div className="px-2 py-1 flex justify-between items-center border-b border-white/5 mb-1">
@@ -527,6 +440,7 @@ const ChatInput = forwardRef(function ChatInput(
                 </div>
               </div>
             )}
+            */}
 
             {/* File Preview Cards (Absolute above) - Mobile optimized */}
             {attachedFiles.length > 0 && (
